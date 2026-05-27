@@ -1,0 +1,29 @@
+<resources>
+    <string name="app_name">Exelgramm</string>
+    <string name="login_title">Вход</string>
+    <string name="login_hint">Ваше имя в чате</string>
+    <string name="login_button">Продолжить</string>
+    <string name="nav_chat">Чат</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="chat_connect_title">Подключить таблицу</string>
+    <string name="chat_connect_hint">Вставьте ссылку на Google Таблицу и URL веб-приложения Apps Script</string>
+    <string name="hint_sheet_url">Ссылка на таблицу</string>
+    <string name="hint_web_app_url">URL веб-приложения (.../exec)</string>
+    <string name="hint_sheet_name">Имя листа</string>
+    <string name="connect_button">Подключить</string>
+    <string name="hint_message">Сообщение</string>
+    <string name="send">Отправить</string>
+    <string name="profile_title">Профиль</string>
+    <string name="save_profile">Сохранить</string>
+    <string name="logout">Выйти</string>
+    <string name="error_name_required">Введите имя</string>
+    <string name="error_invalid_sheet_url">Некорректная ссылка на таблицу</string>
+    <string name="error_web_app_url_required">Укажите URL веб-приложения Apps Script</string>
+    <string name="chat_connected">Чат подключён</string>
+    <string name="profile_saved">Сохранено</string>
+    <string name="default_sheet_name">Лист1</string>
+    <string name="chat_empty">Нет сообщений.\nНапишите первое ниже — оно появится в таблице.</string>
+    <string name="chat_connected_ok">Подключено. Сообщений: %d</string>
+    <string name="hint_web_app_url_short">URL: script.google.com/macros/s/…/exec</string>
+    <string name="error_web_app_must_be_exec">Нужен URL вида script.google.com/macros/s/…/exec (не googleusercontent)</string>
+</resources>

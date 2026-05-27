@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    <color name="tg_primary">#3390EC</color>
+    <color name="tg_chat_bg">#E6EBF0</color>
+    <color name="tg_toolbar">#5288C1</color>
+    <color name="tg_bubble_in">#FFFFFF</color>
+    <color name="tg_bubble_out">#EFFDDE</color>
+    <color name="tg_text_secondary">#707579</color>
+    <color name="tg_error">#E53935</color>
+</resources>
