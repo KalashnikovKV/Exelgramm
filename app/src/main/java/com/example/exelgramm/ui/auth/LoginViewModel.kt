@@ -1,25 +1,50 @@
 package com.example.exelgramm.ui.auth
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.exelgramm.R
 import com.example.exelgramm.core.UiText
 import com.example.exelgramm.data.repository.AuthRepository
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+data class LoginUiState(
+    val isRegistered: Boolean = false,
+    val isLoggedIn: Boolean = false,
+)
 
 sealed interface LoginEffect {
     data object NavigateToMain : LoginEffect
     data class ShowError(val message: UiText) : LoginEffect
 }
 
-class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
+@HiltViewModel
+class LoginViewModel @Inject constructor(
+    private val authRepository: AuthRepository,
+) : ViewModel() {
+
+    val uiState = authRepository.authState
+        .map { LoginUiState(isRegistered = it.isRegistered, isLoggedIn = it.isLoggedIn) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, LoginUiState())
 
     private val _effects = Channel<LoginEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
+
+    init {
+        viewModelScope.launch {
+            val state = authRepository.authState.first()
+            if (state.isLoggedIn) {
+                _effects.send(LoginEffect.NavigateToMain)
+            }
+        }
+    }
 
     fun submit(username: String, password: String) {
         val trimmedUsername = username.trim()
@@ -52,11 +77,5 @@ class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
         viewModelScope.launch {
             _effects.send(LoginEffect.ShowError(UiText.StringResource(resId)))
         }
-    }
-
-    class Factory(private val repo: AuthRepository) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            LoginViewModel(repo) as T
     }
 }

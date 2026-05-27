@@ -7,6 +7,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
 import androidx.navigation.NavController
@@ -15,7 +16,9 @@ import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.NavigationUI
 import com.example.exelgramm.databinding.ActivityMainBinding
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
@@ -43,13 +46,20 @@ class MainActivity : AppCompatActivity() {
 
         val topLevelDestinations = setOf(R.id.nav_chat, R.id.nav_profile)
         val appBarConfig = AppBarConfiguration(topLevelDestinations)
-
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfig)
         NavigationUI.setupWithNavController(binding.bottomNav, navController)
 
         val white = ContextCompat.getColor(this, R.color.white)
-        navController.addOnDestinationChangedListener { _, _, _ ->
-            binding.toolbar.navigationIcon?.setTint(white)
+
+        navController.addOnDestinationChangedListener { _, destination, _ ->
+            val isLoginScreen = destination.id == R.id.loginFragment
+            binding.statusBarBackground.isVisible = !isLoginScreen
+            binding.toolbar.isVisible = !isLoginScreen
+            binding.bottomNav.isVisible = !isLoginScreen
+
+            if (!isLoginScreen) {
+                binding.toolbar.navigationIcon?.setTint(white)
+            }
         }
     }
 

@@ -1,7 +1,6 @@
 package com.example.exelgramm.ui.chat
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.exelgramm.core.DEFAULT_SHEET_NAME
 import com.example.exelgramm.core.ErrorTexts
@@ -10,6 +9,7 @@ import com.example.exelgramm.data.local.SessionStore
 import com.example.exelgramm.data.local.UserSession
 import com.example.exelgramm.data.repository.ChatRepository
 import com.example.exelgramm.domain.model.Message
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class ChatUiState(
     val session: UserSession = UserSession(),
@@ -34,9 +35,10 @@ sealed interface ChatEffect {
     data class ShowToast(val message: String) : ChatEffect
 }
 
-class ChatViewModel(
+@HiltViewModel
+class ChatViewModel @Inject constructor(
     private val sessionStore: SessionStore,
-    private val repository: ChatRepository = ChatRepository(),
+    private val repository: ChatRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -45,9 +47,7 @@ class ChatViewModel(
     private val _effects = Channel<ChatEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
 
-    /** Хранит «сырые» доменные сообщения для корректного merge и ремаппинга при смене имени. */
     private var rawMessages: List<Message> = emptyList()
-
     private var pollJob: Job? = null
 
     init {
@@ -56,7 +56,6 @@ class ChatViewModel(
                 val previousDisplayName = _uiState.value.session.displayName
                 _uiState.update { it.copy(session = session) }
 
-                // Перемаппируем если изменился displayName (incoming/outgoing могут поменяться)
                 if (session.displayName != previousDisplayName) {
                     publishMessages(session)
                 }
@@ -121,10 +120,6 @@ class ChatViewModel(
         }
     }
 
-    /**
-     * Сохраняет конфиг чата. [spreadsheetId] уже распарсен во Fragment через SheetLinkParser
-     * (или ChatConfigValidator) — ViewModel не дублирует парсинг URL.
-     */
     fun saveChatConfig(sheetUrl: String, spreadsheetId: String, webAppUrl: String, sheetName: String) {
         viewModelScope.launch {
             sessionStore.saveChatConfig(
@@ -152,7 +147,6 @@ class ChatViewModel(
                         _uiState.update { it.copy(error = null) }
                     }
                     .onFailure {
-                        // Экспоненциальная задержка при ошибках поллинга
                         backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
                     }
             }
@@ -186,12 +180,6 @@ class ChatViewModel(
     override fun onCleared() {
         stopPolling()
         super.onCleared()
-    }
-
-    class Factory(private val sessionStore: SessionStore) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ChatViewModel(sessionStore) as T
     }
 
     companion object {

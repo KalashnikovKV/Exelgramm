@@ -2,11 +2,11 @@ package com.example.exelgramm.ui.profile
 
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.exelgramm.core.DEFAULT_SHEET_NAME
 import com.example.exelgramm.data.local.SessionStore
 import com.example.exelgramm.data.repository.ChatConfigValidator
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 data class ChatConfigUiState(
     val sheetUrl: String = "",
@@ -28,7 +29,10 @@ sealed interface ChatConfigEffect {
     data object ShowSaved : ChatConfigEffect
 }
 
-class ChatConfigViewModel(private val store: SessionStore) : ViewModel() {
+@HiltViewModel
+class ChatConfigViewModel @Inject constructor(
+    private val store: SessionStore,
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatConfigUiState())
     val uiState: StateFlow<ChatConfigUiState> = _uiState.asStateFlow()
@@ -62,11 +66,5 @@ class ChatConfigViewModel(private val store: SessionStore) : ViewModel() {
                     _effects.send(ChatConfigEffect.NavigateBack)
                 }
         }
-    }
-
-    class Factory(private val store: SessionStore) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            ChatConfigViewModel(store) as T
     }
 }

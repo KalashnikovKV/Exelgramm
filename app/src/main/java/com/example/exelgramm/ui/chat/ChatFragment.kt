@@ -14,23 +14,19 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.example.exelgramm.ExelgrammApp
 import com.example.exelgramm.R
 import com.example.exelgramm.data.repository.ChatConfigValidator
 import com.example.exelgramm.databinding.FragmentChatBinding
-import kotlinx.coroutines.flow.first
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class ChatFragment : Fragment() {
 
     private var _binding: FragmentChatBinding? = null
     private val binding get() = _binding!!
 
-    private val app get() = requireActivity().application as ExelgrammApp
-
-    private val viewModel: ChatViewModel by viewModels {
-        ChatViewModel.Factory(app.sessionStore)
-    }
+    private val viewModel: ChatViewModel by viewModels()
 
     private lateinit var adapter: MessageAdapter
 
@@ -69,15 +65,22 @@ class ChatFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
-            val session = app.sessionStore.session.first()
-            binding.sheetUrlInput.setText(session.sheetUrl)
-            binding.webAppUrlInput.setText(session.webAppUrl)
-            binding.sheetNameInput.setText(session.sheetName.ifBlank { getString(R.string.default_sheet_name) })
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state -> render(state) }
+                viewModel.uiState.collect { state ->
+                    // Заполнить поля при первой загрузке сессии
+                    if (binding.sheetUrlInput.text.isNullOrEmpty() && state.session.sheetUrl.isNotEmpty()) {
+                        binding.sheetUrlInput.setText(state.session.sheetUrl)
+                    }
+                    if (binding.webAppUrlInput.text.isNullOrEmpty() && state.session.webAppUrl.isNotEmpty()) {
+                        binding.webAppUrlInput.setText(state.session.webAppUrl)
+                    }
+                    if (binding.sheetNameInput.text.isNullOrEmpty()) {
+                        binding.sheetNameInput.setText(
+                            state.session.sheetName.ifBlank { getString(R.string.default_sheet_name) },
+                        )
+                    }
+                    render(state)
+                }
             }
         }
 
@@ -150,7 +153,6 @@ class ChatFragment : Fragment() {
         when (val result = ChatConfigValidator.validate(sheetUrl, webAppUrl)) {
             is ChatConfigValidator.Result.Failure ->
                 Toast.makeText(requireContext(), result.errorResId, Toast.LENGTH_LONG).show()
-
             is ChatConfigValidator.Result.Success ->
                 viewModel.saveChatConfig(sheetUrl, result.spreadsheetId, webAppUrl, sheetName)
         }

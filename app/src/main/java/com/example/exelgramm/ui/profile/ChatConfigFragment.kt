@@ -11,19 +11,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
-import com.example.exelgramm.ExelgrammApp
 import com.example.exelgramm.R
 import com.example.exelgramm.databinding.FragmentChatConfigBinding
+import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
+@AndroidEntryPoint
 class ChatConfigFragment : Fragment() {
 
     private var _binding: FragmentChatConfigBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: ChatConfigViewModel by viewModels {
-        ChatConfigViewModel.Factory((requireActivity().application as ExelgrammApp).sessionStore)
-    }
+    private val viewModel: ChatConfigViewModel by viewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,7 +41,6 @@ class ChatConfigFragment : Fragment() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    // Заполняем поля только один раз (при первой загрузке из DataStore)
                     if (binding.sheetUrlInput.text.isNullOrEmpty() && state.sheetUrl.isNotEmpty()) {
                         binding.sheetUrlInput.setText(state.sheetUrl)
                     }
@@ -62,10 +60,8 @@ class ChatConfigFragment : Fragment() {
                     when (effect) {
                         is ChatConfigEffect.ShowError ->
                             Toast.makeText(requireContext(), effect.resId, Toast.LENGTH_LONG).show()
-
                         is ChatConfigEffect.ShowSaved ->
                             Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
-
                         is ChatConfigEffect.NavigateBack ->
                             findNavController().popBackStack()
                     }
