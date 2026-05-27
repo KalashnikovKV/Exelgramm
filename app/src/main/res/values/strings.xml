@@ -1,10 +1,24 @@
 <resources>
     <string name="app_name">Exelgramm</string>
+
+    <!-- Login / Register -->
     <string name="login_title">Вход</string>
-    <string name="login_hint">Ваше имя в чате</string>
-    <string name="login_button">Продолжить</string>
+    <string name="login_subtitle">Введите логин и пароль</string>
+    <string name="login_register_title">Создать аккаунт</string>
+    <string name="login_register_subtitle">Придумайте логин и пароль.\nПозже вход будет заменён на Google.</string>
+    <string name="login_username_hint">Логин</string>
+    <string name="login_password_hint">Пароль</string>
+    <string name="login_button_sign_in">Войти</string>
+    <string name="login_button_register">Продолжить</string>
+    <string name="error_fields_required">Заполните все поля</string>
+    <string name="error_password_too_short">Пароль должен содержать не менее 4 символов</string>
+    <string name="error_invalid_credentials">Неверный логин или пароль</string>
+
+    <!-- Navigation -->
     <string name="nav_chat">Чат</string>
     <string name="nav_profile">Профиль</string>
+
+    <!-- Chat -->
     <string name="chat_connect_title">Подключить таблицу</string>
     <string name="chat_connect_hint">Вставьте ссылку на Google Таблицу и URL веб-приложения Apps Script</string>
     <string name="hint_sheet_url">Ссылка на таблицу</string>
@@ -13,17 +27,24 @@
     <string name="connect_button">Подключить</string>
     <string name="hint_message">Сообщение</string>
     <string name="send">Отправить</string>
-    <string name="profile_title">Профиль</string>
-    <string name="save_profile">Сохранить</string>
-    <string name="logout">Выйти</string>
-    <string name="error_name_required">Введите имя</string>
-    <string name="error_invalid_sheet_url">Некорректная ссылка на таблицу</string>
-    <string name="error_web_app_url_required">Укажите URL веб-приложения Apps Script</string>
-    <string name="chat_connected">Чат подключён</string>
-    <string name="profile_saved">Сохранено</string>
     <string name="default_sheet_name">Лист1</string>
     <string name="chat_empty">Нет сообщений.\nНапишите первое ниже — оно появится в таблице.</string>
     <string name="chat_connected_ok">Подключено. Сообщений: %d</string>
     <string name="hint_web_app_url_short">URL: script.google.com/macros/s/…/exec</string>
+
+    <!-- Profile -->
+    <string name="profile_title">Профиль</string>
+    <string name="profile_username_label">Логин</string>
+    <string name="configure_chat">Настроить чат</string>
+    <string name="logout">Выйти</string>
+
+    <!-- Chat config -->
+    <string name="chat_config_title">Настройка чата</string>
+    <string name="save_config">Сохранить</string>
+    <string name="config_saved">Сохранено</string>
+
+    <!-- Errors -->
+    <string name="error_invalid_sheet_url">Некорректная ссылка на таблицу</string>
+    <string name="error_web_app_url_required">Укажите URL веб-приложения Apps Script</string>
     <string name="error_web_app_must_be_exec">Нужен URL вида script.google.com/macros/s/…/exec (не googleusercontent)</string>
 </resources>

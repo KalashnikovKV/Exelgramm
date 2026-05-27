@@ -16,10 +16,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.exelgramm.ExelgrammApp
 import com.example.exelgramm.R
-import com.example.exelgramm.core.ErrorTexts
-import com.example.exelgramm.data.local.UserSession
 import com.example.exelgramm.data.remote.SheetLinkParser
-import com.example.exelgramm.data.repository.ChatRepository
 import com.example.exelgramm.databinding.FragmentChatBinding
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -75,20 +72,28 @@ class ChatFragment : Fragment() {
             val session = app.sessionStore.session.first()
             binding.sheetUrlInput.setText(session.sheetUrl)
             binding.webAppUrlInput.setText(session.webAppUrl)
-            prefillConnectFields(session)
+            binding.sheetNameInput.setText(session.sheetName.ifBlank { getString(R.string.default_sheet_name) })
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    render(state)
+                viewModel.uiState.collect { state -> render(state) }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.effects.collect { effect ->
+                    when (effect) {
+                        is ChatEffect.ShowToast -> Toast.makeText(
+                            requireContext(),
+                            effect.message,
+                            Toast.LENGTH_LONG,
+                        ).show()
+                    }
                 }
             }
         }
-    }
-
-    private fun prefillConnectFields(session: UserSession) {
-        binding.sheetNameInput.setText(session.sheetName.ifBlank { getString(R.string.default_sheet_name) })
     }
 
     private fun render(state: ChatUiState) {
@@ -139,10 +144,10 @@ class ChatFragment : Fragment() {
     private fun connectChat() {
         val sheetUrl = binding.sheetUrlInput.text?.toString().orEmpty()
         val webAppUrl = binding.webAppUrlInput.text?.toString().orEmpty()
-        val sheetName = binding.sheetNameInput.text?.toString().orEmpty().ifBlank { "Лист1" }
+        val sheetName = binding.sheetNameInput.text?.toString()
+            .orEmpty().ifBlank { getString(R.string.default_sheet_name) }
 
-        val spreadsheetId = SheetLinkParser.parseSpreadsheetId(sheetUrl)
-        if (spreadsheetId == null) {
+        if (SheetLinkParser.parseSpreadsheetId(sheetUrl) == null) {
             Toast.makeText(requireContext(), R.string.error_invalid_sheet_url, Toast.LENGTH_LONG).show()
             return
         }
@@ -155,34 +160,7 @@ class ChatFragment : Fragment() {
             return
         }
 
-        binding.connectButton.isEnabled = false
-        viewLifecycleOwner.lifecycleScope.launch {
-            val normalizedWebApp = SheetLinkParser.canonicalExecUrl(webAppUrl)
-            app.sessionStore.saveChatConfig(
-                sheetUrl = sheetUrl,
-                spreadsheetId = spreadsheetId,
-                sheetName = sheetName,
-                webAppUrl = normalizedWebApp,
-            )
-            val session = app.sessionStore.session.first()
-            ChatRepository().loadMessages(session)
-                .onSuccess { messages ->
-                    Toast.makeText(
-                        requireContext(),
-                        getString(R.string.chat_connected_ok, messages.size),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                    viewModel.refresh()
-                }
-                .onFailure { e ->
-                    Toast.makeText(
-                        requireContext(),
-                        ErrorTexts.from(e),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
-            binding.connectButton.isEnabled = true
-        }
+        viewModel.saveChatConfig(sheetUrl, webAppUrl, sheetName)
     }
 
     override fun onDestroyView() {
