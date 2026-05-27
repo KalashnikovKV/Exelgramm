@@ -16,7 +16,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.exelgramm.ExelgrammApp
 import com.example.exelgramm.R
-import com.example.exelgramm.data.remote.SheetLinkParser
+import com.example.exelgramm.data.repository.ChatConfigValidator
 import com.example.exelgramm.databinding.FragmentChatBinding
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -46,7 +46,7 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = MessageAdapter { viewModel.uiState.value.session.displayName }
+        adapter = MessageAdapter()
         binding.messagesList.layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true
         }
@@ -147,20 +147,13 @@ class ChatFragment : Fragment() {
         val sheetName = binding.sheetNameInput.text?.toString()
             .orEmpty().ifBlank { getString(R.string.default_sheet_name) }
 
-        if (SheetLinkParser.parseSpreadsheetId(sheetUrl) == null) {
-            Toast.makeText(requireContext(), R.string.error_invalid_sheet_url, Toast.LENGTH_LONG).show()
-            return
-        }
-        if (webAppUrl.isBlank()) {
-            Toast.makeText(requireContext(), R.string.error_web_app_url_required, Toast.LENGTH_LONG).show()
-            return
-        }
-        if (!webAppUrl.contains("script.google.com/macros/s/")) {
-            Toast.makeText(requireContext(), R.string.error_web_app_must_be_exec, Toast.LENGTH_LONG).show()
-            return
-        }
+        when (val result = ChatConfigValidator.validate(sheetUrl, webAppUrl)) {
+            is ChatConfigValidator.Result.Failure ->
+                Toast.makeText(requireContext(), result.errorResId, Toast.LENGTH_LONG).show()
 
-        viewModel.saveChatConfig(sheetUrl, webAppUrl, sheetName)
+            is ChatConfigValidator.Result.Success ->
+                viewModel.saveChatConfig(sheetUrl, result.spreadsheetId, webAppUrl, sheetName)
+        }
     }
 
     override fun onDestroyView() {

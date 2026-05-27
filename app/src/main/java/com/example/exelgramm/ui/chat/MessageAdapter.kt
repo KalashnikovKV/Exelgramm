@@ -8,16 +8,16 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.exelgramm.R
-import com.example.exelgramm.core.TimeFormats
-import com.example.exelgramm.domain.model.Message
 
-class MessageAdapter(
-    private val currentAuthor: () -> String,
-) : ListAdapter<Message, MessageAdapter.Holder>(Diff) {
+/**
+ * Работает с [MessageUiItem]: тип (incoming/outgoing) и время уже вычислены во ViewModel,
+ * адаптер — только отображение.
+ */
+class MessageAdapter : ListAdapter<MessageUiItem, MessageAdapter.Holder>(Diff) {
 
-    override fun getItemViewType(position: Int): Int {
-        val message = getItem(position)
-        return if (message.isMine(currentAuthor())) VIEW_OUTGOING else VIEW_INCOMING
+    override fun getItemViewType(position: Int): Int = when (getItem(position)) {
+        is MessageUiItem.Outgoing -> VIEW_OUTGOING
+        is MessageUiItem.Incoming -> VIEW_INCOMING
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
@@ -31,7 +31,7 @@ class MessageAdapter(
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
-        holder.bind(getItem(position), getItemViewType(position) == VIEW_INCOMING)
+        holder.bind(getItem(position))
     }
 
     class Holder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -39,23 +39,28 @@ class MessageAdapter(
         private val text: TextView = itemView.findViewById(R.id.messageText)
         private val time: TextView = itemView.findViewById(R.id.messageTime)
 
-        fun bind(message: Message, incoming: Boolean) {
-            if (incoming) {
-                author.visibility = View.VISIBLE
-                author.text = message.author
-            } else {
-                author.visibility = View.GONE
+        fun bind(item: MessageUiItem) {
+            when (item) {
+                is MessageUiItem.Incoming -> {
+                    author.visibility = View.VISIBLE
+                    author.text = item.author
+                    text.text = item.text
+                    time.text = item.time
+                }
+                is MessageUiItem.Outgoing -> {
+                    author.visibility = View.GONE
+                    text.text = item.text
+                    time.text = item.time
+                }
             }
-            text.text = message.text
-            time.text = TimeFormats.formatChatTime(message.timestamp)
         }
     }
 
-    private object Diff : DiffUtil.ItemCallback<Message>() {
-        override fun areItemsTheSame(oldItem: Message, newItem: Message): Boolean =
+    private object Diff : DiffUtil.ItemCallback<MessageUiItem>() {
+        override fun areItemsTheSame(oldItem: MessageUiItem, newItem: MessageUiItem): Boolean =
             oldItem.id == newItem.id
 
-        override fun areContentsTheSame(oldItem: Message, newItem: Message): Boolean =
+        override fun areContentsTheSame(oldItem: MessageUiItem, newItem: MessageUiItem): Boolean =
             oldItem == newItem
     }
 

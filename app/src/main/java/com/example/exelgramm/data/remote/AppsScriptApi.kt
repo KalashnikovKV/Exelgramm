@@ -1,5 +1,6 @@
 package com.example.exelgramm.data.remote
 
+import com.example.exelgramm.core.AppError
 import com.example.exelgramm.domain.model.Message
 import com.google.gson.Gson
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -28,9 +29,7 @@ class AppsScriptApi(
     ): Result<List<Message>> = runCatching {
         val body = executeGetChain(webAppUrl, spreadsheetId, sheetName)
         val response = parseJson(body, MessagesResponse::class.java)
-        if (!response.ok) {
-            throw IllegalStateException(response.error ?: "Unknown error")
-        }
+        if (!response.ok) throw AppError.ApiError(response.error ?: "Unknown error")
         response.messages.orEmpty().map { it.toDomain() }
     }
 
@@ -50,9 +49,7 @@ class AppsScriptApi(
         )
         val body = executePost(webAppUrl, gson.toJson(payload))
         val response = parseJson(body, SimpleResponse::class.java)
-        if (!response.ok) {
-            throw IllegalStateException(response.error ?: "Send failed")
-        }
+        if (!response.ok) throw AppError.ApiError(response.error ?: "Send failed")
     }
 
     private fun executeGetChain(
@@ -83,15 +80,15 @@ class AppsScriptApi(
                 when {
                     response.code in 300..399 -> {
                         current = response.header("Location")
-                            ?: throw IllegalStateException("HTTP ${response.code} без Location")
+                            ?: throw AppError.HttpError(response.code, "No Location header")
                         return@repeat
                     }
                     response.isSuccessful -> return body
-                    else -> throw IllegalStateException("HTTP ${response.code}: ${body.take(200)}")
+                    else -> throw AppError.HttpError(response.code, body.take(200))
                 }
             }
         }
-        throw IllegalStateException("Слишком много редиректов (GET)")
+        throw AppError.TooManyRedirects
     }
 
     /**
@@ -113,7 +110,7 @@ class AppsScriptApi(
             when {
                 response.code in 300..399 -> return """{"ok":true}"""
                 response.isSuccessful -> return body.ifBlank { """{"ok":true}""" }
-                else -> throw IllegalStateException("HTTP ${response.code}: ${body.take(200)}")
+                else -> throw AppError.HttpError(response.code, body.take(200))
             }
         }
     }
@@ -125,11 +122,7 @@ class AppsScriptApi(
 
     private fun <T> parseJson(body: String, type: Class<T>): T {
         val trimmed = body.trim()
-        if (trimmed.startsWith("<")) {
-            throw IllegalStateException(
-                "Сервер вернул HTML. Проверьте URL .../exec и доступ «Все»."
-            )
-        }
+        if (trimmed.startsWith("<")) throw AppError.HtmlResponse
         return gson.fromJson(trimmed, type)
     }
 

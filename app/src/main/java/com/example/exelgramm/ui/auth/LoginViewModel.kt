@@ -3,8 +3,9 @@ package com.example.exelgramm.ui.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.exelgramm.core.PasswordUtils
-import com.example.exelgramm.data.local.SessionStore
+import com.example.exelgramm.R
+import com.example.exelgramm.core.UiText
+import com.example.exelgramm.data.repository.AuthRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -12,10 +13,10 @@ import kotlinx.coroutines.launch
 
 sealed interface LoginEffect {
     data object NavigateToMain : LoginEffect
-    data class ShowError(val message: String) : LoginEffect
+    data class ShowError(val message: UiText) : LoginEffect
 }
 
-class LoginViewModel(private val sessionStore: SessionStore) : ViewModel() {
+class LoginViewModel(private val authRepository: AuthRepository) : ViewModel() {
 
     private val _effects = Channel<LoginEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
@@ -23,40 +24,39 @@ class LoginViewModel(private val sessionStore: SessionStore) : ViewModel() {
     fun submit(username: String, password: String) {
         val trimmedUsername = username.trim()
         if (trimmedUsername.isBlank() || password.isBlank()) {
-            sendEffect(LoginEffect.ShowError("Заполните все поля"))
+            sendError(R.string.error_fields_required)
             return
         }
 
         viewModelScope.launch {
-            val session = sessionStore.session.first()
-
-            if (!session.isRegistered) {
+            val state = authRepository.authState.first()
+            if (!state.isRegistered) {
                 if (password.length < 4) {
-                    _effects.send(LoginEffect.ShowError("Пароль должен содержать не менее 4 символов"))
+                    _effects.send(LoginEffect.ShowError(UiText.StringResource(R.string.error_password_too_short)))
                     return@launch
                 }
-                sessionStore.saveCredentials(trimmedUsername, PasswordUtils.hash(password))
+                authRepository.register(trimmedUsername, password)
                 _effects.send(LoginEffect.NavigateToMain)
             } else {
-                val valid = session.username == trimmedUsername &&
-                    session.passwordHash == PasswordUtils.hash(password)
-                if (valid) {
-                    sessionStore.login()
+                val success = authRepository.login(trimmedUsername, password)
+                if (success) {
                     _effects.send(LoginEffect.NavigateToMain)
                 } else {
-                    _effects.send(LoginEffect.ShowError("Неверный логин или пароль"))
+                    _effects.send(LoginEffect.ShowError(UiText.StringResource(R.string.error_invalid_credentials)))
                 }
             }
         }
     }
 
-    private fun sendEffect(effect: LoginEffect) {
-        viewModelScope.launch { _effects.send(effect) }
+    private fun sendError(@androidx.annotation.StringRes resId: Int) {
+        viewModelScope.launch {
+            _effects.send(LoginEffect.ShowError(UiText.StringResource(resId)))
+        }
     }
 
-    class Factory(private val sessionStore: SessionStore) : ViewModelProvider.Factory {
+    class Factory(private val repo: AuthRepository) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            LoginViewModel(sessionStore) as T
+            LoginViewModel(repo) as T
     }
 }

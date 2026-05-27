@@ -6,13 +6,14 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import com.example.exelgramm.ExelgrammApp
 import com.example.exelgramm.R
-import com.example.exelgramm.data.remote.SheetLinkParser
 import com.example.exelgramm.databinding.FragmentChatConfigBinding
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class ChatConfigFragment : Fragment() {
@@ -20,7 +21,9 @@ class ChatConfigFragment : Fragment() {
     private var _binding: FragmentChatConfigBinding? = null
     private val binding get() = _binding!!
 
-    private val store get() = (requireActivity().application as ExelgrammApp).sessionStore
+    private val viewModel: ChatConfigViewModel by viewModels {
+        ChatConfigViewModel.Factory((requireActivity().application as ExelgrammApp).sessionStore)
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -33,43 +36,51 @@ class ChatConfigFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        loadConfig()
-        binding.saveConfigButton.setOnClickListener { saveConfig() }
-    }
 
-    private fun loadConfig() {
+        binding.saveConfigButton.setOnClickListener { saveConfig() }
+
         viewLifecycleOwner.lifecycleScope.launch {
-            val session = store.session.first()
-            binding.sheetUrlInput.setText(session.sheetUrl)
-            binding.webAppUrlInput.setText(session.webAppUrl)
-            binding.sheetNameInput.setText(session.sheetName)
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.uiState.collect { state ->
+                    // Заполняем поля только один раз (при первой загрузке из DataStore)
+                    if (binding.sheetUrlInput.text.isNullOrEmpty() && state.sheetUrl.isNotEmpty()) {
+                        binding.sheetUrlInput.setText(state.sheetUrl)
+                    }
+                    if (binding.webAppUrlInput.text.isNullOrEmpty() && state.webAppUrl.isNotEmpty()) {
+                        binding.webAppUrlInput.setText(state.webAppUrl)
+                    }
+                    if (binding.sheetNameInput.text.isNullOrEmpty()) {
+                        binding.sheetNameInput.setText(state.sheetName)
+                    }
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.effects.collect { effect ->
+                    when (effect) {
+                        is ChatConfigEffect.ShowError ->
+                            Toast.makeText(requireContext(), effect.resId, Toast.LENGTH_LONG).show()
+
+                        is ChatConfigEffect.ShowSaved ->
+                            Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
+
+                        is ChatConfigEffect.NavigateBack ->
+                            findNavController().popBackStack()
+                    }
+                }
+            }
         }
     }
 
     private fun saveConfig() {
-        val sheetUrl = binding.sheetUrlInput.text?.toString().orEmpty()
-        val webAppUrl = binding.webAppUrlInput.text?.toString().orEmpty()
-        val sheetName = binding.sheetNameInput.text?.toString()
-            .orEmpty().ifBlank { getString(R.string.default_sheet_name) }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            if (webAppUrl.isNotBlank() && !webAppUrl.contains("script.google.com/macros/s/")) {
-                Toast.makeText(requireContext(), R.string.error_web_app_must_be_exec, Toast.LENGTH_LONG).show()
-                return@launch
-            }
-            if (sheetUrl.isNotBlank() && webAppUrl.isNotBlank()) {
-                val id = SheetLinkParser.parseSpreadsheetId(sheetUrl)
-                if (id == null) {
-                    Toast.makeText(requireContext(), R.string.error_invalid_sheet_url, Toast.LENGTH_SHORT).show()
-                    return@launch
-                }
-                store.saveChatConfig(sheetUrl, id, sheetName, webAppUrl)
-            } else if (webAppUrl.isNotBlank()) {
-                store.saveWebAppUrl(webAppUrl)
-            }
-            Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
-            findNavController().popBackStack()
-        }
+        viewModel.save(
+            sheetUrl = binding.sheetUrlInput.text?.toString().orEmpty(),
+            webAppUrl = binding.webAppUrlInput.text?.toString().orEmpty(),
+            sheetName = binding.sheetNameInput.text?.toString()
+                .orEmpty().ifBlank { getString(R.string.default_sheet_name) },
+        )
     }
 
     override fun onDestroyView() {

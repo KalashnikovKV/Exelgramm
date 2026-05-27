@@ -1,28 +1,32 @@
 package com.example.exelgramm.core
 
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 
 object TimeFormats {
 
-    fun nowIsoUtc(): String {
-        val fmt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-        fmt.timeZone = TimeZone.getTimeZone("UTC")
-        return fmt.format(Date())
-    }
+    private val ISO_WRITE = DateTimeFormatter
+        .ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+        .withZone(ZoneOffset.UTC)
+
+    private val ISO_READ = DateTimeFormatter
+        .ofPattern("yyyy-MM-dd'T'HH:mm:ss")
+
+    private val DISPLAY = DateTimeFormatter.ofPattern("HH:mm")
+
+    fun nowIsoUtc(): String = ISO_WRITE.format(Instant.now())
 
     fun formatChatTime(iso: String): String {
         if (iso.isBlank()) return ""
         return try {
-            val parsed = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }.parse(iso.take(19))
-            if (parsed == null) iso.takeLast(8).take(5) else {
-                SimpleDateFormat("HH:mm", Locale.getDefault()).format(parsed)
-            }
-        } catch (_: Exception) {
+            val ldt = LocalDateTime.parse(iso.take(19), ISO_READ)
+            val zdt = ldt.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault())
+            DISPLAY.format(zdt)
+        } catch (_: DateTimeParseException) {
             iso.take(16)
         }
     }

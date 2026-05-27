@@ -9,7 +9,9 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.example.exelgramm.ExelgrammApp
 import com.example.exelgramm.MainActivity
 import com.example.exelgramm.R
@@ -24,7 +26,7 @@ class LoginActivity : AppCompatActivity() {
     private val app get() = application as ExelgrammApp
 
     private val viewModel: LoginViewModel by viewModels {
-        LoginViewModel.Factory(app.sessionStore)
+        LoginViewModel.Factory(app.authRepository)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -69,14 +71,17 @@ class LoginActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            viewModel.effects.collect { effect ->
-                when (effect) {
-                    is LoginEffect.NavigateToMain -> openMain()
-                    is LoginEffect.ShowError -> Toast.makeText(
-                        this@LoginActivity,
-                        effect.message,
-                        Toast.LENGTH_SHORT,
-                    ).show()
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.effects.collect { effect ->
+                    when (effect) {
+                        is LoginEffect.NavigateToMain -> openMain()
+                        is LoginEffect.ShowError ->
+                            Toast.makeText(
+                                this@LoginActivity,
+                                effect.message.resolve(this@LoginActivity),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                    }
                 }
             }
         }

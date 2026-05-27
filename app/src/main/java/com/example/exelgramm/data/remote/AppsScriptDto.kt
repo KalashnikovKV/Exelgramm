@@ -23,12 +23,6 @@ data class MessageDto(
     )
 }
 
-data class FetchMessagesRequest(
-    val action: String = "fetch",
-    @SerializedName("spreadsheetId") val spreadsheetId: String,
-    val sheet: String,
-)
-
 data class PostMessageRequest(
     val action: String = "send",
     @SerializedName("spreadsheetId") val spreadsheetId: String,
