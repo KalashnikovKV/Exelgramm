@@ -33,6 +33,21 @@ data class PostMessageRequest(
     val text: String,
 )
 
+data class UpdateMessageRequest(
+    val action: String = "update",
+    @SerializedName("spreadsheetId") val spreadsheetId: String,
+    val sheet: String,
+    val id: String,
+    val text: String,
+)
+
+data class DeleteMessageRequest(
+    val action: String = "delete",
+    @SerializedName("spreadsheetId") val spreadsheetId: String,
+    val sheet: String,
+    val id: String,
+)
+
 data class SimpleResponse(
     val ok: Boolean,
     val error: String? = null,

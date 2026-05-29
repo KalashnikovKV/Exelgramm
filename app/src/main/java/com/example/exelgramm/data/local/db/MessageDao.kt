@@ -17,6 +17,16 @@ interface MessageDao {
     suspend fun upsertAll(messages: List<MessageEntity>)
 
     @Query(
+        "UPDATE messages SET text = :text WHERE id = :id AND spreadsheetId = :spreadsheetId AND sheetName = :sheetName",
+    )
+    suspend fun updateText(id: String, spreadsheetId: String, sheetName: String, text: String)
+
+    @Query(
+        "DELETE FROM messages WHERE id = :id AND spreadsheetId = :spreadsheetId AND sheetName = :sheetName",
+    )
+    suspend fun deleteById(id: String, spreadsheetId: String, sheetName: String)
+
+    @Query(
         "DELETE FROM messages WHERE spreadsheetId = :spreadsheetId AND sheetName = :sheetName",
     )
     suspend fun deleteForSheet(spreadsheetId: String, sheetName: String)

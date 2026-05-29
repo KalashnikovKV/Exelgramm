@@ -31,6 +31,12 @@
     <string name="chat_empty">Нет сообщений.\nНапишите первое ниже — оно появится в таблице.</string>
     <string name="chat_connected_ok">Подключено. Сообщений: %d</string>
     <string name="hint_web_app_url_short">URL: script.google.com/macros/s/…/exec</string>
+    <string name="chat_message_actions_title">Действия с сообщением</string>
+    <string name="chat_action_edit">Редактировать</string>
+    <string name="chat_action_delete">Удалить</string>
+    <string name="chat_action_save">Сохранить</string>
+    <string name="chat_edit_title">Редактирование сообщения</string>
+    <string name="chat_delete_confirm">Удалить это сообщение?</string>
 
     <!-- Profile -->
     <string name="profile_title">Профиль</string>

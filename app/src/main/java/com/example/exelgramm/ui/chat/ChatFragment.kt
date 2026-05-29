@@ -1,6 +1,8 @@
 package com.example.exelgramm.ui.chat
 
 import android.os.Bundle
+import android.widget.EditText
+import androidx.appcompat.app.AlertDialog
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -42,7 +44,7 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = MessageAdapter()
+        adapter = MessageAdapter { _, message -> showOutgoingMessageActions(message) }
         binding.messagesList.layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true
         }
@@ -142,6 +144,48 @@ class ChatFragment : Fragment() {
     private fun sendFromInput() {
         viewModel.onInputChanged(binding.messageInput.text?.toString().orEmpty())
         viewModel.sendMessage()
+    }
+
+    private fun showOutgoingMessageActions(message: MessageUiItem.Outgoing) {
+        val options = arrayOf(
+            getString(R.string.chat_action_edit),
+            getString(R.string.chat_action_delete),
+        )
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.chat_message_actions_title)
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showEditDialog(message)
+                    1 -> showDeleteConfirmation(message.id)
+                }
+            }
+            .show()
+    }
+
+    private fun showEditDialog(message: MessageUiItem.Outgoing) {
+        val input = EditText(requireContext()).apply {
+            setText(message.text)
+            setSelection(message.text.length)
+        }
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.chat_edit_title)
+            .setView(input)
+            .setPositiveButton(R.string.chat_action_save) { _, _ ->
+                val updatedText = input.text?.toString().orEmpty()
+                viewModel.editMessage(message.id, updatedText)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
+    }
+
+    private fun showDeleteConfirmation(messageId: String) {
+        AlertDialog.Builder(requireContext())
+            .setMessage(R.string.chat_delete_confirm)
+            .setPositiveButton(R.string.chat_action_delete) { _, _ ->
+                viewModel.deleteMessage(messageId)
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun connectChat() {

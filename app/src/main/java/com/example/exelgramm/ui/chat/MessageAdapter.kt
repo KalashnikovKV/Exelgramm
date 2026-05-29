@@ -13,7 +13,9 @@ import com.example.exelgramm.R
  * Работает с [MessageUiItem]: тип (incoming/outgoing) и время уже вычислены во ViewModel,
  * адаптер — только отображение.
  */
-class MessageAdapter : ListAdapter<MessageUiItem, MessageAdapter.Holder>(Diff) {
+class MessageAdapter(
+    private val onOutgoingLongClick: (anchor: View, message: MessageUiItem.Outgoing) -> Unit,
+) : ListAdapter<MessageUiItem, MessageAdapter.Holder>(Diff) {
 
     override fun getItemViewType(position: Int): Int = when (getItem(position)) {
         is MessageUiItem.Outgoing -> VIEW_OUTGOING
@@ -31,7 +33,7 @@ class MessageAdapter : ListAdapter<MessageUiItem, MessageAdapter.Holder>(Diff) {
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
-        holder.bind(getItem(position))
+        holder.bind(getItem(position), onOutgoingLongClick)
     }
 
     class Holder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -39,15 +41,25 @@ class MessageAdapter : ListAdapter<MessageUiItem, MessageAdapter.Holder>(Diff) {
         private val text: TextView = itemView.findViewById(R.id.messageText)
         private val time: TextView = itemView.findViewById(R.id.messageTime)
 
-        fun bind(item: MessageUiItem) {
+        fun bind(
+            item: MessageUiItem,
+            onOutgoingLongClick: (anchor: View, message: MessageUiItem.Outgoing) -> Unit,
+        ) {
             when (item) {
                 is MessageUiItem.Incoming -> {
+                    itemView.setOnLongClickListener(null)
+                    itemView.isLongClickable = false
                     author.visibility = View.VISIBLE
                     author.text = item.author
                     text.text = item.text
                     time.text = item.time
                 }
                 is MessageUiItem.Outgoing -> {
+                    itemView.isLongClickable = true
+                    itemView.setOnLongClickListener {
+                        onOutgoingLongClick(it, item)
+                        true
+                    }
                     author.visibility = View.GONE
                     text.text = item.text
                     time.text = item.time

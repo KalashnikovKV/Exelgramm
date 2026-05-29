@@ -52,6 +52,40 @@ class AppsScriptApi(
         if (!response.ok) throw AppError.ApiError(response.error ?: "Send failed")
     }
 
+    fun updateMessage(
+        webAppUrl: String,
+        spreadsheetId: String,
+        sheetName: String,
+        messageId: String,
+        text: String,
+    ): Result<Unit> = runCatching {
+        val payload = UpdateMessageRequest(
+            spreadsheetId = spreadsheetId,
+            sheet = sheetName,
+            id = messageId,
+            text = text,
+        )
+        val body = executePost(webAppUrl, gson.toJson(payload))
+        val response = parseJson(body, SimpleResponse::class.java)
+        if (!response.ok) throw AppError.ApiError(response.error ?: "Update failed")
+    }
+
+    fun deleteMessage(
+        webAppUrl: String,
+        spreadsheetId: String,
+        sheetName: String,
+        messageId: String,
+    ): Result<Unit> = runCatching {
+        val payload = DeleteMessageRequest(
+            spreadsheetId = spreadsheetId,
+            sheet = sheetName,
+            id = messageId,
+        )
+        val body = executePost(webAppUrl, gson.toJson(payload))
+        val response = parseJson(body, SimpleResponse::class.java)
+        if (!response.ok) throw AppError.ApiError(response.error ?: "Delete failed")
+    }
+
     private fun executeGetChain(
         webAppUrl: String,
         spreadsheetId: String,

@@ -120,6 +120,50 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    fun editMessage(messageId: String, updatedText: String) {
+        val session = _uiState.value.session
+        val text = updatedText.trim()
+        if (!session.isChatConfigured || text.isEmpty()) return
+        val currentMessage = rawMessages.firstOrNull { it.id == messageId } ?: return
+        if (!currentMessage.isMine(session.displayName)) return
+        if (currentMessage.text == text) return
+
+        rawMessages = rawMessages.map { message ->
+            if (message.id == messageId) message.copy(text = text) else message
+        }
+        publishMessages(session)
+
+        viewModelScope.launch {
+            repository.updateMessage(session, messageId, text)
+                .onFailure { e ->
+                    rawMessages = rawMessages.map { message ->
+                        if (message.id == messageId) message.copy(text = currentMessage.text) else message
+                    }
+                    publishMessages(_uiState.value.session)
+                    _uiState.update { it.copy(error = ErrorTexts.from(e)) }
+                }
+        }
+    }
+
+    fun deleteMessage(messageId: String) {
+        val session = _uiState.value.session
+        if (!session.isChatConfigured) return
+        val currentMessage = rawMessages.firstOrNull { it.id == messageId } ?: return
+        if (!currentMessage.isMine(session.displayName)) return
+
+        rawMessages = rawMessages.filterNot { it.id == messageId }
+        publishMessages(session)
+
+        viewModelScope.launch {
+            repository.deleteMessage(session, messageId)
+                .onFailure { e ->
+                    rawMessages = (rawMessages + currentMessage).sortedBy { it.timestamp }
+                    publishMessages(_uiState.value.session)
+                    _uiState.update { it.copy(error = ErrorTexts.from(e)) }
+                }
+        }
+    }
+
     fun saveChatConfig(sheetUrl: String, spreadsheetId: String, webAppUrl: String, sheetName: String) {
         viewModelScope.launch {
             sessionStore.saveChatConfig(
@@ -159,10 +203,8 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun mergeRaw(remote: List<Message>) {
-        if (remote.isEmpty()) return
-        rawMessages = (remote + rawMessages)
-            .distinctBy { it.id }
-            .sortedBy { it.timestamp }
+        // Сервер считается источником истины: так корректно отражаются удаления.
+        rawMessages = remote.sortedBy { it.timestamp }
     }
 
     private fun publishMessages(session: UserSession) {

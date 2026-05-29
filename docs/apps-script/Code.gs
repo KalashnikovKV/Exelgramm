@@ -48,6 +48,32 @@ function doPost(e) {
       return json_({ ok: true, messages: readMessages_(sheetFetch) });
     }
 
+    if (body.action === 'update') {
+      if (!body.id || !body.text) {
+        return json_({ ok: false, error: 'Required: id, text' });
+      }
+      var sheetUpdate = getSheet_(spreadsheetId, sheetName);
+      ensureHeaders_(sheetUpdate);
+      var updated = updateMessageById_(sheetUpdate, String(body.id), String(body.text));
+      if (!updated) {
+        return json_({ ok: false, error: 'Message not found' });
+      }
+      return json_({ ok: true });
+    }
+
+    if (body.action === 'delete') {
+      if (!body.id) {
+        return json_({ ok: false, error: 'Required: id' });
+      }
+      var sheetDelete = getSheet_(spreadsheetId, sheetName);
+      ensureHeaders_(sheetDelete);
+      var deleted = deleteMessageById_(sheetDelete, String(body.id));
+      if (!deleted) {
+        return json_({ ok: false, error: 'Message not found' });
+      }
+      return json_({ ok: true });
+    }
+
     // Отправка сообщения
     var id = body.id;
     var timestamp = body.timestamp;
@@ -126,6 +152,39 @@ function readMessages_(sheet) {
     });
   }
   return out;
+}
+
+function updateMessageById_(sheet, messageId, text) {
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return false;
+  var headers = data[0].map(function (h) { return String(h).trim().toLowerCase(); });
+  var idCol = indexOf_(headers, 'id');
+  var textCol = indexOf_(headers, 'text');
+  if (idCol < 0 || textCol < 0) return false;
+
+  for (var i = 1; i < data.length; i++) {
+    if (cell_(data[i], idCol) === messageId) {
+      sheet.getRange(i + 1, textCol + 1).setValue(text);
+      return true;
+    }
+  }
+  return false;
+}
+
+function deleteMessageById_(sheet, messageId) {
+  var data = sheet.getDataRange().getValues();
+  if (data.length < 2) return false;
+  var headers = data[0].map(function (h) { return String(h).trim().toLowerCase(); });
+  var idCol = indexOf_(headers, 'id');
+  if (idCol < 0) return false;
+
+  for (var i = data.length - 1; i >= 1; i--) {
+    if (cell_(data[i], idCol) === messageId) {
+      sheet.deleteRow(i + 1);
+      return true;
+    }
+  }
+  return false;
 }
 
 function indexOf_(headers, name) {

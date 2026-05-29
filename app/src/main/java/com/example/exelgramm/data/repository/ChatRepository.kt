@@ -64,4 +64,40 @@ class ChatRepository @Inject constructor(
                 message = message,
             ).map { message }
         }
+
+    suspend fun updateMessage(session: UserSession, messageId: String, text: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            require(session.isChatConfigured) { "Чат не настроен" }
+            api.updateMessage(
+                webAppUrl = session.webAppUrl,
+                spreadsheetId = session.spreadsheetId,
+                sheetName = session.sheetName,
+                messageId = messageId,
+                text = text,
+            ).onSuccess {
+                messageDao.updateText(
+                    id = messageId,
+                    spreadsheetId = session.spreadsheetId,
+                    sheetName = session.sheetName,
+                    text = text,
+                )
+            }
+        }
+
+    suspend fun deleteMessage(session: UserSession, messageId: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            require(session.isChatConfigured) { "Чат не настроен" }
+            api.deleteMessage(
+                webAppUrl = session.webAppUrl,
+                spreadsheetId = session.spreadsheetId,
+                sheetName = session.sheetName,
+                messageId = messageId,
+            ).onSuccess {
+                messageDao.deleteById(
+                    id = messageId,
+                    spreadsheetId = session.spreadsheetId,
+                    sheetName = session.sheetName,
+                )
+            }
+        }
 }
