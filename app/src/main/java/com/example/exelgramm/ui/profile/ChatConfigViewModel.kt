@@ -24,7 +24,6 @@ data class ChatConfigUiState(
 )
 
 sealed interface ChatConfigEffect {
-    data object NavigateBack : ChatConfigEffect
     data class ShowError(@param:StringRes val resId: Int) : ChatConfigEffect
     data object ShowSaved : ChatConfigEffect
 }
@@ -63,7 +62,6 @@ class ChatConfigViewModel @Inject constructor(
                         webAppUrl = webAppUrl,
                     )
                     _effects.send(ChatConfigEffect.ShowSaved)
-                    _effects.send(ChatConfigEffect.NavigateBack)
                 }
         }
     }

@@ -32,6 +32,8 @@ data class UserSession(
     val sheetUrl: String = "",
     val sheetName: String = DEFAULT_SHEET_NAME,
     val webAppUrl: String = "",
+    /** Unix-timestamp (мс) первой регистрации. 0 = не сохранён (старые аккаунты). */
+    val createdAt: Long = 0L,
 ) {
     val displayName: String get() = username
     val isChatConfigured: Boolean get() = spreadsheetId.isNotBlank() && webAppUrl.isNotBlank()
@@ -54,6 +56,7 @@ class SessionStore @Inject constructor(
             sheetUrl = prefs[KEY_SHEET_URL].orEmpty(),
             sheetName = prefs[KEY_SHEET_NAME].orEmpty().ifBlank { DEFAULT_SHEET_NAME },
             webAppUrl = prefs[KEY_WEB_APP_URL].orEmpty(),
+            createdAt = auth.createdAt,
         )
     }
 

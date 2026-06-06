@@ -2,14 +2,14 @@
 <resources>
 
     <style name="ThemeOverlay.Exelgramm.BottomNav" parent="">
-        <item name="colorSurface">@color/tg_primary</item>
+        <item name="colorSurface">@color/tg_nav_bg</item>
         <item name="colorOnSurface">@color/white</item>
-        <item name="colorSecondaryContainer">@color/tg_primary</item>
+        <item name="colorSecondaryContainer">@color/tg_nav_bg</item>
     </style>
 
     <style name="Widget.Exelgramm.BottomNavigationView" parent="Widget.Material3.BottomNavigationView">
-        <item name="android:background">@color/tg_primary</item>
-        <item name="backgroundTint">@color/tg_primary</item>
+        <item name="android:background">@color/tg_nav_bg</item>
+        <item name="backgroundTint">@color/tg_nav_bg</item>
         <item name="itemIconTint">@color/bottom_nav_item</item>
         <item name="itemTextColor">@color/bottom_nav_item</item>
         <item name="itemActiveIndicatorStyle">@style/Widget.Exelgramm.BottomNav.ActiveIndicator</item>
@@ -26,6 +26,11 @@
     <style name="Widget.Exelgramm.SendButton" parent="Widget.Material3.Button">
         <item name="backgroundTint">@color/white</item>
         <item name="android:textColor">@color/tg_primary</item>
+    </style>
+
+    <style name="Widget.Exelgramm.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox">
+        <item name="boxStrokeWidth">2dp</item>
+        <item name="boxStrokeColor">@color/tg_input_stroke_selector</item>
     </style>
 
 </resources>

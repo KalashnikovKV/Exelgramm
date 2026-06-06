@@ -27,6 +27,8 @@ class AuthStore @Inject constructor(@param:ApplicationContext private val contex
         val passwordHash: String = "",
         val passwordSalt: String = "",
         val isLoggedIn: Boolean = false,
+        /** Unix-timestamp (мс) первой регистрации. 0 = не сохранён (старые аккаунты). */
+        val createdAt: Long = 0L,
     ) {
         val isRegistered: Boolean get() = username.isNotBlank() && passwordHash.isNotBlank()
     }
@@ -51,15 +53,18 @@ class AuthStore @Inject constructor(@param:ApplicationContext private val contex
         passwordHash = prefs.getString(KEY_PASSWORD_HASH, "").orEmpty(),
         passwordSalt = prefs.getString(KEY_PASSWORD_SALT, "").orEmpty(),
         isLoggedIn = prefs.getBoolean(KEY_IS_LOGGED_IN, false),
+        createdAt = prefs.getLong(KEY_CREATED_AT, 0L),
     )
 
     suspend fun saveCredentials(username: String, hash: String, salt: String) =
         withContext(Dispatchers.IO) {
+            val existingCreatedAt = prefs.getLong(KEY_CREATED_AT, 0L)
             prefs.edit(commit = true) {
                 putString(KEY_USERNAME, username)
                 putString(KEY_PASSWORD_HASH, hash)
                 putString(KEY_PASSWORD_SALT, salt)
                 putBoolean(KEY_IS_LOGGED_IN, true)
+                if (existingCreatedAt == 0L) putLong(KEY_CREATED_AT, System.currentTimeMillis())
             }
             _state.value = loadFromPrefs()
         }
@@ -84,5 +89,6 @@ class AuthStore @Inject constructor(@param:ApplicationContext private val contex
         const val KEY_PASSWORD_HASH = "password_hash"
         const val KEY_PASSWORD_SALT = "password_salt"
         const val KEY_IS_LOGGED_IN = "is_logged_in"
+        const val KEY_CREATED_AT = "created_at"
     }
 }

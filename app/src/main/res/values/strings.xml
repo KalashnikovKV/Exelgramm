@@ -17,6 +17,7 @@
     <!-- Navigation -->
     <string name="nav_chat">Чат</string>
     <string name="nav_profile">Профиль</string>
+    <string name="nav_settings">Настройки чата</string>
 
     <!-- Chat -->
     <string name="chat_connect_title">Подключить таблицу</string>
@@ -43,6 +44,14 @@
     <string name="profile_username_label">Логин</string>
     <string name="configure_chat">Настроить чат</string>
     <string name="logout">Выйти</string>
+    <string name="profile_registered_label">Зарегистрирован</string>
+    <string name="profile_registered_unknown">Дата не сохранена</string>
+    <string name="profile_section_appearance">Оформление</string>
+    <string name="profile_dark_theme">Тёмная тема</string>
+    <string name="profile_language_label">Язык</string>
+    <string name="profile_version_label">Версия приложения</string>
+    <string name="profile_section_account">Учётная запись</string>
+    <string name="profile_version_format">%1$s (%2$d)</string>
 
     <!-- Chat config -->
     <string name="chat_config_title">Настройка чата</string>

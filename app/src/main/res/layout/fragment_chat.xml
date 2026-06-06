@@ -147,7 +147,7 @@
                 android:imeOptions="actionSend"
                 android:inputType="textCapSentences|textMultiLine"
                 android:maxLines="4"
-                android:textColor="@color/black"
+                android:textColor="@color/tg_text_primary"
                 android:textColorHint="@color/tg_text_secondary" />
 
             <com.google.android.material.button.MaterialButton

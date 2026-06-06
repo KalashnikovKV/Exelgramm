@@ -1,8 +1,10 @@
 package com.example.exelgramm
 
+import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -25,6 +27,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val savedTheme = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            .getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        AppCompatDelegate.setDefaultNightMode(savedTheme)
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -44,7 +49,7 @@ class MainActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
 
-        val topLevelDestinations = setOf(R.id.nav_chat, R.id.nav_profile)
+        val topLevelDestinations = setOf(R.id.nav_chat, R.id.nav_profile, R.id.nav_settings)
         val appBarConfig = AppBarConfiguration(topLevelDestinations)
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfig)
         NavigationUI.setupWithNavController(binding.bottomNav, navController)
@@ -67,8 +72,9 @@ class MainActivity : AppCompatActivity() {
         navController.navigateUp() || super.onSupportNavigateUp()
 
     private fun applyBrandChrome() {
-        val primary = ContextCompat.getColor(this, R.color.tg_primary)
-        binding.toolbar.setBackgroundColor(primary)
+        val navBg = ContextCompat.getColor(this, R.color.tg_nav_bg)
+        binding.toolbar.setBackgroundColor(navBg)
+        binding.statusBarBackground.setBackgroundColor(navBg)
         binding.toolbar.setTitleTextColor(ContextCompat.getColor(this, R.color.white))
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = false
@@ -87,11 +93,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun styleBottomNav() {
-        val primary = ContextCompat.getColor(this, R.color.tg_primary)
+        val navBg = ContextCompat.getColor(this, R.color.tg_nav_bg)
         val itemColors = ContextCompat.getColorStateList(this, R.color.bottom_nav_item)
         binding.bottomNav.apply {
-            setBackgroundColor(primary)
-            backgroundTintList = ColorStateList.valueOf(primary)
+            setBackgroundColor(navBg)
+            backgroundTintList = ColorStateList.valueOf(navBg)
             itemIconTintList = itemColors
             itemTextColor = itemColors
             disableActiveIndicator(this)

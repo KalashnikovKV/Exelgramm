@@ -10,7 +10,6 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.fragment.findNavController
 import com.example.exelgramm.R
 import com.example.exelgramm.databinding.FragmentChatConfigBinding
 import dagger.hilt.android.AndroidEntryPoint
@@ -62,8 +61,6 @@ class ChatConfigFragment : Fragment() {
                             Toast.makeText(requireContext(), effect.resId, Toast.LENGTH_LONG).show()
                         is ChatConfigEffect.ShowSaved ->
                             Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
-                        is ChatConfigEffect.NavigateBack ->
-                            findNavController().popBackStack()
                     }
                 }
             }

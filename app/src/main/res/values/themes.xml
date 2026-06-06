@@ -2,9 +2,10 @@
     <style name="Base.Theme.Exelgramm" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/tg_primary</item>
         <item name="colorPrimaryContainer">@color/tg_primary</item>
-        <item name="android:statusBarColor">@color/tg_primary</item>
-        <item name="android:navigationBarColor">@color/tg_primary</item>
+        <item name="android:statusBarColor">@color/tg_nav_bg</item>
+        <item name="android:navigationBarColor">@color/tg_nav_bg</item>
         <item name="bottomNavigationStyle">@style/Widget.Exelgramm.BottomNavigationView</item>
+        <item name="textInputStyle">@style/Widget.Exelgramm.TextInputLayout</item>
     </style>
 
     <style name="Theme.Exelgramm" parent="Base.Theme.Exelgramm" />
