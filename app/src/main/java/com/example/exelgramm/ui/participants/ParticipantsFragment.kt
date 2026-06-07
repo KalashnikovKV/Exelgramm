@@ -8,16 +8,13 @@ import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.exelgramm.R
 import com.example.exelgramm.databinding.FragmentParticipantsBinding
+import com.example.exelgramm.ui.common.collectOnStarted
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class ParticipantsFragment : Fragment() {
@@ -52,26 +49,26 @@ class ParticipantsFragment : Fragment() {
             DividerItemDecoration(requireContext(), DividerItemDecoration.VERTICAL),
         )
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.participants.collect { items ->
-                    adapter.submitList(items)
-                    val isEmpty = items.isEmpty()
-                    binding.participantsList.isVisible = !isEmpty
-                    val isConfigured = viewModel.isConfigured.value
-                    binding.emptyText.isVisible = isEmpty && isConfigured
-                    binding.notConfiguredText.isVisible = !isConfigured
-                }
-            }
+        binding.participantsRefresh.setOnRefreshListener {
+            viewModel.refresh(syncFromRemote = true, showLoading = true)
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.isConfigured.collect { configured ->
-                    binding.tableHeader.isVisible = configured
-                    binding.notConfiguredText.isVisible = !configured
-                }
-            }
+        collectOnStarted(viewModel.participants) { items ->
+            adapter.submitList(items)
+            val isEmpty = items.isEmpty()
+            binding.participantsList.isVisible = !isEmpty
+            val isConfigured = viewModel.isConfigured.value
+            binding.emptyText.isVisible = isEmpty && isConfigured
+            binding.notConfiguredText.isVisible = !isConfigured
+        }
+
+        collectOnStarted(viewModel.isConfigured) { configured ->
+            binding.tableHeader.isVisible = configured
+            binding.notConfiguredText.isVisible = !configured
+        }
+
+        collectOnStarted(viewModel.isLoading) { loading ->
+            binding.participantsRefresh.isRefreshing = loading && viewModel.isConfigured.value
         }
     }
 
