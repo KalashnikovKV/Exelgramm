@@ -1,13 +1,15 @@
 package com.example.exelgramm.ui.participants
 
+import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
-import android.os.Bundle
+import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -45,7 +47,12 @@ class ParticipantDetailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        messagesAdapter = ParticipantMessagesAdapter()
+        messagesAdapter = ParticipantMessagesAdapter { entity ->
+            findNavController().navigate(
+                R.id.action_participant_detail_to_message_detail,
+                bundleOf("messageId" to entity.id),
+            )
+        }
         binding.messagesList.layoutManager = LinearLayoutManager(requireContext())
         binding.messagesList.adapter = messagesAdapter
         binding.messagesList.addItemDecoration(
@@ -79,27 +86,37 @@ class ParticipantDetailFragment : Fragment() {
         super.onDestroyView()
         _binding = null
     }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.load()
+    }
 }
 
-class ParticipantMessagesAdapter :
-    ListAdapter<MessageEntity, ParticipantMessagesAdapter.Holder>(Diff) {
+class ParticipantMessagesAdapter(
+    private val onMessageClick: (MessageEntity) -> Unit,
+) : ListAdapter<MessageEntity, ParticipantMessagesAdapter.Holder>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_participant_message, parent, false)
-        return Holder(view)
+        return Holder(view, onMessageClick)
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
         holder.bind(getItem(position))
     }
 
-    class Holder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class Holder(
+        itemView: View,
+        private val onMessageClick: (MessageEntity) -> Unit,
+    ) : RecyclerView.ViewHolder(itemView) {
         private val typeBadge: TextView = itemView.findViewById(R.id.msgTypeBadge)
         private val msgText: TextView = itemView.findViewById(R.id.msgText)
         private val msgTime: TextView = itemView.findViewById(R.id.msgTime)
 
         fun bind(entity: MessageEntity) {
+            itemView.setOnClickListener { onMessageClick(entity) }
             typeBadge.text = if (entity.type == MessageType.IMPORTANT) "★" else "○"
             typeBadge.setTextColor(
                 itemView.context.getColor(

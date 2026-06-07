@@ -37,14 +37,22 @@ class ChatRepository @Inject constructor(
         )
         if (apiResult.isSuccess) {
             val messages = apiResult.getOrThrow().sortedBy { it.timestamp }
-            messageDao.upsertAll(messages.map { it.toEntity(session.spreadsheetId, session.sheetName) })
+            messageDao.replaceForSheet(
+                session.spreadsheetId,
+                session.sheetName,
+                messages.map { it.toEntity(session.spreadsheetId, session.sheetName) },
+            )
             return@withContext Result.success(messages)
         }
 
         val csvResult = csvReader.fetch(session.spreadsheetId, session.sheetName)
         if (csvResult.isSuccess) {
             val messages = csvResult.getOrThrow().sortedBy { it.timestamp }
-            messageDao.upsertAll(messages.map { it.toEntity(session.spreadsheetId, session.sheetName) })
+            messageDao.replaceForSheet(
+                session.spreadsheetId,
+                session.sheetName,
+                messages.map { it.toEntity(session.spreadsheetId, session.sheetName) },
+            )
             return@withContext Result.success(messages)
         }
 

@@ -16,7 +16,7 @@ import com.example.exelgramm.domain.model.MessageType
  * адаптер — только отображение.
  */
 class MessageAdapter(
-    private val onOutgoingLongClick: (anchor: View, message: MessageUiItem.Outgoing) -> Unit,
+    private val onMessageLongClick: (MessageUiItem) -> Unit,
 ) : ListAdapter<MessageUiItem, MessageAdapter.Holder>(Diff) {
 
     override fun getItemViewType(position: Int): Int = when (getItem(position)) {
@@ -35,7 +35,7 @@ class MessageAdapter(
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
-        holder.bind(getItem(position), onOutgoingLongClick)
+        holder.bind(getItem(position), onMessageLongClick)
     }
 
     class Holder(itemView: View) : RecyclerView.ViewHolder(itemView) {
@@ -46,12 +46,15 @@ class MessageAdapter(
 
         fun bind(
             item: MessageUiItem,
-            onOutgoingLongClick: (anchor: View, message: MessageUiItem.Outgoing) -> Unit,
+            onMessageLongClick: (MessageUiItem) -> Unit,
         ) {
+            itemView.isLongClickable = true
+            itemView.setOnLongClickListener {
+                onMessageLongClick(item)
+                true
+            }
             when (item) {
                 is MessageUiItem.Incoming -> {
-                    itemView.setOnLongClickListener(null)
-                    itemView.isLongClickable = false
                     typeBadge.isVisible = item.messageType == MessageType.IMPORTANT
                     author.visibility = View.VISIBLE
                     author.text = item.author
@@ -59,11 +62,6 @@ class MessageAdapter(
                     time.text = item.time
                 }
                 is MessageUiItem.Outgoing -> {
-                    itemView.isLongClickable = true
-                    itemView.setOnLongClickListener {
-                        onOutgoingLongClick(it, item)
-                        true
-                    }
                     typeBadge.isVisible = item.messageType == MessageType.IMPORTANT
                     author.visibility = View.GONE
                     text.text = item.text

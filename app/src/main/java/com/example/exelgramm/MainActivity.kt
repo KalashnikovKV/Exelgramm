@@ -60,16 +60,39 @@ class MainActivity : AppCompatActivity() {
 
         val white = ContextCompat.getColor(this, R.color.white)
 
+        binding.toolbar.setOnMenuItemClickListener { item ->
+            if (item.itemId == R.id.action_close_to_chat) {
+                navigateToChat()
+                true
+            } else {
+                false
+            }
+        }
+
         navController.addOnDestinationChangedListener { _, destination, _ ->
             val isLoginScreen = destination.id == R.id.loginFragment
             binding.statusBarBackground.isVisible = !isLoginScreen
             binding.toolbar.isVisible = !isLoginScreen
             binding.bottomNav.isVisible = !isLoginScreen
 
+            binding.toolbar.menu.clear()
+            if (destination.id == R.id.participantDetailFragment ||
+                destination.id == R.id.messageDetailFragment
+            ) {
+                binding.toolbar.inflateMenu(R.menu.toolbar_detail)
+                binding.toolbar.menu.findItem(R.id.action_close_to_chat)?.icon?.setTint(white)
+            }
+
             if (!isLoginScreen) {
                 binding.toolbar.navigationIcon?.setTint(white)
             }
         }
+    }
+
+    private fun navigateToChat() {
+        val chatItem = binding.bottomNav.menu.findItem(R.id.nav_chat) ?: return
+        NavigationUI.onNavDestinationSelected(chatItem, navController)
+        binding.bottomNav.menu.findItem(R.id.nav_chat)?.isChecked = true
     }
 
     override fun onSupportNavigateUp(): Boolean =

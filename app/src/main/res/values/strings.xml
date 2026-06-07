@@ -33,11 +33,13 @@
     <string name="chat_connected_ok">Подключено. Сообщений: %d</string>
     <string name="hint_web_app_url_short">URL: script.google.com/macros/s/…/exec</string>
     <string name="chat_message_actions_title">Действия с сообщением</string>
+    <string name="chat_action_details">Подробнее</string>
     <string name="chat_action_edit">Редактировать</string>
     <string name="chat_action_delete">Удалить</string>
     <string name="chat_action_save">Сохранить</string>
     <string name="chat_edit_title">Редактирование сообщения</string>
     <string name="chat_delete_confirm">Удалить это сообщение?</string>
+    <string name="action_close_to_chat">Вернуться в чат</string>
 
     <!-- Profile -->
     <string name="profile_title">Профиль</string>
@@ -86,4 +88,14 @@
     <string name="participant_stat_important">Важных</string>
     <string name="participant_first_msg">Первое:</string>
     <string name="participant_last_msg">Последнее:</string>
+
+    <!-- Message detail -->
+    <string name="message_detail_title">Сообщение</string>
+    <string name="message_detail_not_found">Сообщение не найдено</string>
+    <string name="message_detail_mine">Ваше сообщение</string>
+    <string name="message_detail_type_label">Тип</string>
+    <string name="message_detail_time_label">Время</string>
+    <string name="message_detail_id_label">ID</string>
+    <string name="message_detail_text_label">Текст</string>
+    <string name="message_detail_open_author">Профиль участника</string>
 </resources>

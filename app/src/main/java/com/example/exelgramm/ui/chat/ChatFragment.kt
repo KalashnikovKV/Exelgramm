@@ -11,8 +11,10 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
+import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
+import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.exelgramm.R
 import com.example.exelgramm.databinding.FragmentChatBinding
@@ -43,7 +45,7 @@ class ChatFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        adapter = MessageAdapter { _, message -> showOutgoingMessageActions(message) }
+        adapter = MessageAdapter { message -> showMessageActions(message) }
         binding.messagesList.layoutManager = LinearLayoutManager(requireContext()).apply {
             stackFromEnd = true
         }
@@ -145,20 +147,38 @@ class ChatFragment : Fragment() {
         viewModel.sendMessage()
     }
 
-    private fun showOutgoingMessageActions(message: MessageUiItem.Outgoing) {
-        val options = arrayOf(
-            getString(R.string.chat_action_edit),
-            getString(R.string.chat_action_delete),
-        )
+    private fun showMessageActions(message: MessageUiItem) {
+        val options = if (message is MessageUiItem.Outgoing) {
+            arrayOf(
+                getString(R.string.chat_action_details),
+                getString(R.string.chat_action_edit),
+                getString(R.string.chat_action_delete),
+            )
+        } else {
+            arrayOf(getString(R.string.chat_action_details))
+        }
         AlertDialog.Builder(requireContext())
             .setTitle(R.string.chat_message_actions_title)
             .setItems(options) { _, which ->
-                when (which) {
-                    0 -> showEditDialog(message)
-                    1 -> showDeleteConfirmation(message.id)
+                when (message) {
+                    is MessageUiItem.Outgoing -> when (which) {
+                        0 -> openMessageDetail(message.id)
+                        1 -> showEditDialog(message)
+                        2 -> showDeleteConfirmation(message.id)
+                    }
+                    is MessageUiItem.Incoming -> if (which == 0) {
+                        openMessageDetail(message.id)
+                    }
                 }
             }
             .show()
+    }
+
+    private fun openMessageDetail(messageId: String) {
+        findNavController().navigate(
+            R.id.action_chat_to_message_detail,
+            bundleOf("messageId" to messageId),
+        )
     }
 
     private fun showEditDialog(message: MessageUiItem.Outgoing) {

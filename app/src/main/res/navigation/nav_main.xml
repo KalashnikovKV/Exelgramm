@@ -25,7 +25,11 @@
     <fragment
         android:id="@+id/nav_chat"
         android:name="com.example.exelgramm.ui.chat.ChatFragment"
-        android:label="@string/nav_chat" />
+        android:label="@string/nav_chat">
+        <action
+            android:id="@+id/action_chat_to_message_detail"
+            app:destination="@id/messageDetailFragment" />
+    </fragment>
 
     <fragment
         android:id="@+id/nav_profile"
@@ -54,6 +58,22 @@
             android:name="authorName"
             app:argType="string"
             android:defaultValue="" />
+        <action
+            android:id="@+id/action_participant_detail_to_message_detail"
+            app:destination="@id/messageDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/messageDetailFragment"
+        android:name="com.example.exelgramm.ui.message.MessageDetailFragment"
+        android:label="@string/message_detail_title">
+        <argument
+            android:name="messageId"
+            app:argType="string"
+            android:defaultValue="" />
+        <action
+            android:id="@+id/action_message_detail_to_participant"
+            app:destination="@id/participantDetailFragment" />
     </fragment>
 
 </navigation>

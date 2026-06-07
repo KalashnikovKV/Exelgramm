@@ -74,7 +74,7 @@ class ParticipantsFragment : Fragment() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.refresh()
+        viewModel.refresh(syncFromRemote = true)
     }
 
     override fun onDestroyView() {
