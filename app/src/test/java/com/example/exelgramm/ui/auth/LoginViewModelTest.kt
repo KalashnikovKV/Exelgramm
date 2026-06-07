@@ -115,7 +115,7 @@ class LoginViewModelTest {
     }
 
     @Test
-    fun `login with wrong credentials emits ShowError`() = runTest {
+    fun `login accepts any credentials until Google auth is enabled`() = runTest {
         val vm = LoginViewModel(
             FakeAuthRepository(
                 initialState = AuthState(username = "user", isRegistered = true),
@@ -125,10 +125,10 @@ class LoginViewModelTest {
         val effects = mutableListOf<LoginEffect>()
         val job = launch { vm.effects.collect { effects.add(it) } }
 
-        vm.submit("user", "wrongpass")
+        vm.submit("otheruser", "newpassword")
         testDispatcher.scheduler.advanceUntilIdle()
 
-        assertTrue(effects.any { it is LoginEffect.ShowError })
+        assertTrue(effects.any { it is LoginEffect.NavigateToMain })
         job.cancel()
     }
 

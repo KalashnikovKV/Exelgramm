@@ -74,10 +74,8 @@ class AuthStore @Inject constructor(@param:ApplicationContext private val contex
         _state.value = loadFromPrefs()
     }
 
-    suspend fun logout() = withContext(Dispatchers.IO) {
-        prefs.edit(commit = true) { putBoolean(KEY_IS_LOGGED_IN, false) }
-        _state.value = loadFromPrefs()
-    }
+    /** Выход: удаляет логин, пароль и сбрасывает сессию. */
+    suspend fun logout() = clear()
 
     suspend fun clear() = withContext(Dispatchers.IO) {
         prefs.edit(commit = true) { clear() }

@@ -56,6 +56,12 @@ class ChatViewModel @Inject constructor(
 
     private var rawMessages: List<Message> = emptyList()
     private var pollJob: Job? = null
+    /** Отправлены локально, но ещё не пришли с сервера. */
+    private val pendingSends = mutableSetOf<String>()
+    /** Удалены локально, ждём подтверждения с сервера. */
+    private val pendingDeletes = mutableSetOf<String>()
+    /** Отредактированы локально, ждём подтверждения с сервера. */
+    private val pendingEdits = mutableMapOf<String, String>()
 
     init {
         viewModelScope.launch {
@@ -79,6 +85,7 @@ class ChatViewModel @Inject constructor(
                     startPolling()
                 } else {
                     stopPolling()
+                    clearPendingOps()
                     rawMessages = emptyList()
                     _uiState.update { it.copy(messages = emptyList()) }
                 }
@@ -122,10 +129,12 @@ class ChatViewModel @Inject constructor(
 
         optimisticUpdate(
             apply = {
+                pendingSends.add(optimistic.id)
                 rawMessages = (rawMessages + optimistic).sortedBy { it.timestamp }
                 _uiState.update { it.copy(inputText = "", inputType = MessageType.TEXT, error = null) }
             },
             rollback = {
+                pendingSends.remove(optimistic.id)
                 rawMessages = rawMessages.filterNot { it.id == optimistic.id }
                 _uiState.update { it.copy(inputText = text) }
             },
@@ -145,11 +154,13 @@ class ChatViewModel @Inject constructor(
 
         optimisticUpdate(
             apply = {
+                pendingEdits[messageId] = text
                 rawMessages = rawMessages.map { message ->
                     if (message.id == messageId) message.copy(text = text) else message
                 }
             },
             rollback = {
+                pendingEdits.remove(messageId)
                 rawMessages = rawMessages.map { message ->
                     if (message.id == messageId) message.copy(text = currentMessage.text) else message
                 }
@@ -165,8 +176,12 @@ class ChatViewModel @Inject constructor(
         if (!currentMessage.isMine(session.displayName)) return
 
         optimisticUpdate(
-            apply = { rawMessages = rawMessages.filterNot { it.id == messageId } },
+            apply = {
+                pendingDeletes.add(messageId)
+                rawMessages = rawMessages.filterNot { it.id == messageId }
+            },
             rollback = {
+                pendingDeletes.remove(messageId)
                 rawMessages = (rawMessages + currentMessage).sortedBy { it.timestamp }
             },
             request = { repository.deleteMessage(session, messageId) },
@@ -244,8 +259,29 @@ class ChatViewModel @Inject constructor(
     }
 
     private fun mergeRaw(remote: List<Message>) {
-        // Сервер считается источником истины: так корректно отражаются удаления.
-        rawMessages = remote.sortedBy { it.timestamp }
+        val remoteById = remote.associateBy { it.id }
+
+        pendingSends.removeAll { it in remoteById }
+        pendingDeletes.removeAll { it !in remoteById }
+        pendingEdits.keys.removeAll { id ->
+            remoteById[id]?.text == pendingEdits[id]
+        }
+
+        val synced = remote
+            .filter { it.id !in pendingDeletes }
+            .map { message ->
+                val pendingText = pendingEdits[message.id]
+                if (pendingText != null) message.copy(text = pendingText) else message
+            }
+
+        val unsyncedSends = rawMessages.filter { it.id in pendingSends && it.id !in remoteById }
+        rawMessages = (synced + unsyncedSends).sortedBy { it.timestamp }
+    }
+
+    private fun clearPendingOps() {
+        pendingSends.clear()
+        pendingDeletes.clear()
+        pendingEdits.clear()
     }
 
     private fun publishMessages(session: UserSession) {
