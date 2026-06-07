@@ -3,24 +3,20 @@ package com.example.exelgramm.data.remote
 import com.example.exelgramm.core.AppError
 import com.example.exelgramm.domain.model.Message
 import com.google.gson.Gson
+import javax.inject.Inject
+import javax.inject.Named
+import javax.inject.Singleton
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
-import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.TimeUnit
 
-class AppsScriptApi(
-    private val gson: Gson = Gson(),
+@Singleton
+class AppsScriptApi @Inject constructor(
+    @param:Named("noRedirect") private val httpClient: OkHttpClient,
+    private val gson: Gson,
 ) {
-    private val httpNoRedirect = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .protocols(listOf(Protocol.HTTP_1_1))
-        .build()
 
     fun fetchMessages(
         webAppUrl: String,
@@ -38,8 +34,9 @@ class AppsScriptApi(
         spreadsheetId: String,
         sheetName: String,
         message: Message,
-    ): Result<Unit> = runCatching {
-        val payload = PostMessageRequest(
+    ): Result<Unit> = postAction(
+        webAppUrl = webAppUrl,
+        payload = PostMessageRequest(
             spreadsheetId = spreadsheetId,
             sheet = sheetName,
             id = message.id,
@@ -47,11 +44,9 @@ class AppsScriptApi(
             author = message.author,
             text = message.text,
             type = message.type,
-        )
-        val body = executePost(webAppUrl, gson.toJson(payload))
-        val response = parseJson(body, SimpleResponse::class.java)
-        if (!response.ok) throw AppError.ApiError(response.error ?: "Send failed")
-    }
+        ),
+        errorMessage = "Send failed",
+    )
 
     fun updateMessage(
         webAppUrl: String,
@@ -59,33 +54,38 @@ class AppsScriptApi(
         sheetName: String,
         messageId: String,
         text: String,
-    ): Result<Unit> = runCatching {
-        val payload = UpdateMessageRequest(
+    ): Result<Unit> = postAction(
+        webAppUrl = webAppUrl,
+        payload = UpdateMessageRequest(
             spreadsheetId = spreadsheetId,
             sheet = sheetName,
             id = messageId,
             text = text,
-        )
-        val body = executePost(webAppUrl, gson.toJson(payload))
-        val response = parseJson(body, SimpleResponse::class.java)
-        if (!response.ok) throw AppError.ApiError(response.error ?: "Update failed")
-    }
+        ),
+        errorMessage = "Update failed",
+    )
 
     fun deleteMessage(
         webAppUrl: String,
         spreadsheetId: String,
         sheetName: String,
         messageId: String,
-    ): Result<Unit> = runCatching {
-        val payload = DeleteMessageRequest(
+    ): Result<Unit> = postAction(
+        webAppUrl = webAppUrl,
+        payload = DeleteMessageRequest(
             spreadsheetId = spreadsheetId,
             sheet = sheetName,
             id = messageId,
-        )
-        val body = executePost(webAppUrl, gson.toJson(payload))
-        val response = parseJson(body, SimpleResponse::class.java)
-        if (!response.ok) throw AppError.ApiError(response.error ?: "Delete failed")
-    }
+        ),
+        errorMessage = "Delete failed",
+    )
+
+    private fun postAction(webAppUrl: String, payload: Any, errorMessage: String): Result<Unit> =
+        runCatching {
+            val body = executePost(webAppUrl, gson.toJson(payload))
+            val response = parseJson(body, SimpleResponse::class.java)
+            if (!response.ok) throw AppError.ApiError(response.error ?: errorMessage)
+        }
 
     private fun executeGetChain(
         webAppUrl: String,
@@ -109,7 +109,7 @@ class AppsScriptApi(
                 .header("User-Agent", CHROME_USER_AGENT)
                 .header("Accept", "application/json,text/plain,*/*")
                 .build()
-            httpNoRedirect.newCall(request).execute().use { response ->
+            httpClient.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (looksLikeJson(body)) return body
                 when {
@@ -139,7 +139,7 @@ class AppsScriptApi(
             .header("Accept", "application/json")
             .header("Content-Type", "application/json; charset=utf-8")
             .build()
-        httpNoRedirect.newCall(request).execute().use { response ->
+        httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (looksLikeJson(body)) return body
             when {

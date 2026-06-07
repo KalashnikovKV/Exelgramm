@@ -7,7 +7,6 @@ import com.example.exelgramm.core.TimeFormats
 import com.example.exelgramm.data.local.SessionStore
 import com.example.exelgramm.data.local.db.MessageDao
 import com.example.exelgramm.data.local.db.MessageEntity
-import com.example.exelgramm.domain.model.MessageType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -50,22 +49,20 @@ class ParticipantDetailViewModel @Inject constructor(
             val all = messageDao.getAll(session.spreadsheetId, session.sheetName)
             val msgs = all.filter { it.author.equals(authorName, ignoreCase = true) }
                 .sortedBy { it.timestamp }
-
-            val textCount = msgs.count { it.type == MessageType.TEXT }
-            val importantCount = msgs.count { it.type == MessageType.IMPORTANT }
-            val firstTime = msgs.firstOrNull()?.timestamp
-                ?.let { TimeFormats.formatFullDateTime(it) }.orEmpty()
-            val lastTime = msgs.lastOrNull()?.timestamp
-                ?.let { TimeFormats.formatFullDateTime(it) }.orEmpty()
+            val stats = msgs.participantStats()
 
             _uiState.update {
                 it.copy(
                     authorName = authorName,
-                    totalMessages = msgs.size,
-                    textMessages = textCount,
-                    importantMessages = importantCount,
-                    firstMessageTime = firstTime,
-                    lastMessageTime = lastTime,
+                    totalMessages = stats.totalMessages,
+                    textMessages = stats.textMessages,
+                    importantMessages = stats.importantMessages,
+                    firstMessageTime = msgs.firstOrNull()?.timestamp
+                        ?.let(TimeFormats::formatFullDateTime)
+                        .orEmpty(),
+                    lastMessageTime = msgs.lastOrNull()?.timestamp
+                        ?.let(TimeFormats::formatFullDateTime)
+                        .orEmpty(),
                     messages = msgs,
                 )
             }

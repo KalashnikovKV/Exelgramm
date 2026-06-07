@@ -1,5 +1,6 @@
 package com.example.exelgramm.data.repository
 
+import com.example.exelgramm.core.AppError
 import com.example.exelgramm.data.local.UserSession
 import com.example.exelgramm.data.local.db.MessageDao
 import com.example.exelgramm.data.local.db.toEntity
@@ -14,6 +15,7 @@ import javax.inject.Singleton
 @Singleton
 class ChatRepository @Inject constructor(
     private val api: AppsScriptApi,
+    private val csvReader: CsvSheetReader,
     private val messageDao: MessageDao,
 ) {
 
@@ -24,7 +26,9 @@ class ChatRepository @Inject constructor(
      * 3. Room-кэш — если оба источника недоступны (offline)
      */
     suspend fun loadMessages(session: UserSession): Result<List<Message>> = withContext(Dispatchers.IO) {
-        require(session.isChatConfigured) { "Чат не настроен" }
+        if (!session.isChatConfigured) {
+            return@withContext Result.failure(AppError.ChatNotConfigured)
+        }
 
         val apiResult = api.fetchMessages(
             webAppUrl = session.webAppUrl,
@@ -37,7 +41,7 @@ class ChatRepository @Inject constructor(
             return@withContext Result.success(messages)
         }
 
-        val csvResult = CsvSheetReader.fetch(session.spreadsheetId, session.sheetName)
+        val csvResult = csvReader.fetch(session.spreadsheetId, session.sheetName)
         if (csvResult.isSuccess) {
             val messages = csvResult.getOrThrow().sortedBy { it.timestamp }
             messageDao.upsertAll(messages.map { it.toEntity(session.spreadsheetId, session.sheetName) })
@@ -56,7 +60,9 @@ class ChatRepository @Inject constructor(
 
     suspend fun sendMessage(session: UserSession, message: Message): Result<Message> =
         withContext(Dispatchers.IO) {
-            require(session.isChatConfigured) { "Чат не настроен" }
+            if (!session.isChatConfigured) {
+                return@withContext Result.failure(AppError.ChatNotConfigured)
+            }
             api.sendMessage(
                 webAppUrl = session.webAppUrl,
                 spreadsheetId = session.spreadsheetId,
@@ -67,7 +73,9 @@ class ChatRepository @Inject constructor(
 
     suspend fun updateMessage(session: UserSession, messageId: String, text: String): Result<Unit> =
         withContext(Dispatchers.IO) {
-            require(session.isChatConfigured) { "Чат не настроен" }
+            if (!session.isChatConfigured) {
+                return@withContext Result.failure(AppError.ChatNotConfigured)
+            }
             api.updateMessage(
                 webAppUrl = session.webAppUrl,
                 spreadsheetId = session.spreadsheetId,
@@ -86,7 +94,9 @@ class ChatRepository @Inject constructor(
 
     suspend fun deleteMessage(session: UserSession, messageId: String): Result<Unit> =
         withContext(Dispatchers.IO) {
-            require(session.isChatConfigured) { "Чат не настроен" }
+            if (!session.isChatConfigured) {
+                return@withContext Result.failure(AppError.ChatNotConfigured)
+            }
             api.deleteMessage(
                 webAppUrl = session.webAppUrl,
                 spreadsheetId = session.spreadsheetId,

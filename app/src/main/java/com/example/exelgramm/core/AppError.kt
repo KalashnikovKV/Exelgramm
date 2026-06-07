@@ -14,4 +14,6 @@ sealed class AppError : Exception() {
     data class HttpError(val code: Int, val body: String = "") : AppError()
     /** API вернул ok=false с описанием ошибки */
     data class ApiError(val detail: String) : AppError()
+    /** Чат не настроен (нет spreadsheetId или webAppUrl) */
+    data object ChatNotConfigured : AppError()
 }

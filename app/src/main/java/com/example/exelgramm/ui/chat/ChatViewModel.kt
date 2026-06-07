@@ -1,17 +1,19 @@
 package com.example.exelgramm.ui.chat
 
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.exelgramm.core.DEFAULT_SHEET_NAME
 import com.example.exelgramm.core.ErrorTexts
 import com.example.exelgramm.core.TimeFormats
 import com.example.exelgramm.data.local.SessionStore
 import com.example.exelgramm.data.local.UserSession
 import com.example.exelgramm.data.repository.ChatRepository
+import com.example.exelgramm.data.repository.SaveChatConfigUseCase
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
+import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -22,7 +24,6 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import javax.inject.Inject
 
 data class ChatUiState(
     val session: UserSession = UserSession(),
@@ -37,13 +38,14 @@ data class ChatUiState(
 )
 
 sealed interface ChatEffect {
-    data class ShowToast(val message: String) : ChatEffect
+    data class ShowError(@param:StringRes val resId: Int) : ChatEffect
 }
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val sessionStore: SessionStore,
     private val repository: ChatRepository,
+    private val saveChatConfigUseCase: SaveChatConfigUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -85,20 +87,8 @@ class ChatViewModel @Inject constructor(
     }
 
     fun refresh(showLoading: Boolean = true) {
-        val session = _uiState.value.session
-        if (!session.isChatConfigured) return
-        viewModelScope.launch {
-            if (showLoading) _uiState.update { it.copy(isLoading = true, error = null) }
-            repository.loadMessages(session)
-                .onSuccess { messages ->
-                    mergeRaw(messages)
-                    publishMessages(_uiState.value.session)
-                    _uiState.update { it.copy(isLoading = false, error = null) }
-                }
-                .onFailure { e ->
-                    _uiState.update { it.copy(isLoading = false, error = ErrorTexts.from(e)) }
-                }
-        }
+        if (!_uiState.value.session.isChatConfigured) return
+        viewModelScope.launch { syncMessages(showLoading) }
     }
 
     fun onInputChanged(text: String) {
@@ -130,19 +120,19 @@ class ChatViewModel @Inject constructor(
             type = type,
         )
 
-        rawMessages = (rawMessages + optimistic).sortedBy { it.timestamp }
-        _uiState.update { it.copy(inputText = "", inputType = MessageType.TEXT, error = null) }
-        publishMessages(session)
-
-        viewModelScope.launch {
-            repository.sendMessage(session, optimistic)
-                .onSuccess { refresh(showLoading = false) }
-                .onFailure { e ->
-                    rawMessages = rawMessages.filterNot { it.id == optimistic.id }
-                    publishMessages(_uiState.value.session)
-                    _uiState.update { it.copy(error = ErrorTexts.from(e), inputText = text) }
-                }
-        }
+        optimisticUpdate(
+            apply = {
+                rawMessages = (rawMessages + optimistic).sortedBy { it.timestamp }
+                _uiState.update { it.copy(inputText = "", inputType = MessageType.TEXT, error = null) }
+            },
+            rollback = {
+                rawMessages = rawMessages.filterNot { it.id == optimistic.id }
+                _uiState.update { it.copy(inputText = text) }
+            },
+            request = {
+                repository.sendMessage(session, optimistic).onSuccess { refresh(showLoading = false) }
+            },
+        )
     }
 
     fun editMessage(messageId: String, updatedText: String) {
@@ -153,21 +143,19 @@ class ChatViewModel @Inject constructor(
         if (!currentMessage.isMine(session.displayName)) return
         if (currentMessage.text == text) return
 
-        rawMessages = rawMessages.map { message ->
-            if (message.id == messageId) message.copy(text = text) else message
-        }
-        publishMessages(session)
-
-        viewModelScope.launch {
-            repository.updateMessage(session, messageId, text)
-                .onFailure { e ->
-                    rawMessages = rawMessages.map { message ->
-                        if (message.id == messageId) message.copy(text = currentMessage.text) else message
-                    }
-                    publishMessages(_uiState.value.session)
-                    _uiState.update { it.copy(error = ErrorTexts.from(e)) }
+        optimisticUpdate(
+            apply = {
+                rawMessages = rawMessages.map { message ->
+                    if (message.id == messageId) message.copy(text = text) else message
                 }
-        }
+            },
+            rollback = {
+                rawMessages = rawMessages.map { message ->
+                    if (message.id == messageId) message.copy(text = currentMessage.text) else message
+                }
+            },
+            request = { repository.updateMessage(session, messageId, text) },
+        )
     }
 
     fun deleteMessage(messageId: String) {
@@ -176,27 +164,22 @@ class ChatViewModel @Inject constructor(
         val currentMessage = rawMessages.firstOrNull { it.id == messageId } ?: return
         if (!currentMessage.isMine(session.displayName)) return
 
-        rawMessages = rawMessages.filterNot { it.id == messageId }
-        publishMessages(session)
-
-        viewModelScope.launch {
-            repository.deleteMessage(session, messageId)
-                .onFailure { e ->
-                    rawMessages = (rawMessages + currentMessage).sortedBy { it.timestamp }
-                    publishMessages(_uiState.value.session)
-                    _uiState.update { it.copy(error = ErrorTexts.from(e)) }
-                }
-        }
+        optimisticUpdate(
+            apply = { rawMessages = rawMessages.filterNot { it.id == messageId } },
+            rollback = {
+                rawMessages = (rawMessages + currentMessage).sortedBy { it.timestamp }
+            },
+            request = { repository.deleteMessage(session, messageId) },
+        )
     }
 
-    fun saveChatConfig(sheetUrl: String, spreadsheetId: String, webAppUrl: String, sheetName: String) {
+    fun saveChatConfig(sheetUrl: String, webAppUrl: String, sheetName: String) {
         viewModelScope.launch {
-            sessionStore.saveChatConfig(
-                sheetUrl = sheetUrl,
-                spreadsheetId = spreadsheetId,
-                sheetName = sheetName.ifBlank { DEFAULT_SHEET_NAME },
-                webAppUrl = webAppUrl,
-            )
+            when (val result = saveChatConfigUseCase(sheetUrl, webAppUrl, sheetName)) {
+                is SaveChatConfigUseCase.Result.ValidationError ->
+                    _effects.send(ChatEffect.ShowError(result.errorResId))
+                is SaveChatConfigUseCase.Result.Success -> Unit
+            }
         }
     }
 
@@ -206,18 +189,12 @@ class ChatViewModel @Inject constructor(
             var backoffMs = POLL_INTERVAL_MS
             while (isActive) {
                 delay(backoffMs)
-                val session = _uiState.value.session
-                if (!session.isChatConfigured) continue
-                repository.loadMessages(session)
-                    .onSuccess { messages ->
-                        backoffMs = POLL_INTERVAL_MS
-                        mergeRaw(messages)
-                        publishMessages(_uiState.value.session)
-                        _uiState.update { it.copy(error = null) }
-                    }
-                    .onFailure {
-                        backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
-                    }
+                if (!_uiState.value.session.isChatConfigured) continue
+                if (syncMessages(showLoading = false)) {
+                    backoffMs = POLL_INTERVAL_MS
+                } else {
+                    backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+                }
             }
         }
     }
@@ -225,6 +202,45 @@ class ChatViewModel @Inject constructor(
     private fun stopPolling() {
         pollJob?.cancel()
         pollJob = null
+    }
+
+    private suspend fun syncMessages(showLoading: Boolean): Boolean {
+        val session = _uiState.value.session
+        if (!session.isChatConfigured) return false
+        if (showLoading) _uiState.update { it.copy(isLoading = true, error = null) }
+
+        val result = repository.loadMessages(session)
+        result.onSuccess { messages ->
+            mergeRaw(messages)
+            publishMessages(_uiState.value.session)
+            if (showLoading) {
+                _uiState.update { it.copy(isLoading = false, error = null) }
+            } else {
+                _uiState.update { it.copy(error = null) }
+            }
+        }
+        result.onFailure { e ->
+            if (showLoading) {
+                _uiState.update { it.copy(isLoading = false, error = ErrorTexts.from(e)) }
+            }
+        }
+        return result.isSuccess
+    }
+
+    private fun optimisticUpdate(
+        apply: () -> Unit,
+        rollback: () -> Unit,
+        request: suspend () -> Result<*>,
+    ) {
+        apply()
+        publishMessages(_uiState.value.session)
+        viewModelScope.launch {
+            request().onFailure { e ->
+                rollback()
+                publishMessages(_uiState.value.session)
+                _uiState.update { it.copy(error = ErrorTexts.from(e)) }
+            }
+        }
     }
 
     private fun mergeRaw(remote: List<Message>) {

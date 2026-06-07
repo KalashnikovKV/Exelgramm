@@ -1,6 +1,5 @@
 package com.example.exelgramm
 
-import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
 import androidx.activity.enableEdgeToEdge
@@ -18,8 +17,10 @@ import androidx.navigation.fragment.NavHostFragment
 import androidx.navigation.ui.AppBarConfiguration
 import androidx.navigation.ui.NavigationUI
 import com.example.exelgramm.databinding.ActivityMainBinding
+import com.example.exelgramm.di.AppPrefsEntryPoint
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.EntryPointAccessors
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
@@ -28,9 +29,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var navController: NavController
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        val savedTheme = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-            .getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
-        AppCompatDelegate.setDefaultNightMode(savedTheme)
+        val appPrefs = EntryPointAccessors.fromApplication(
+            applicationContext,
+            AppPrefsEntryPoint::class.java,
+        ).appPrefsStore()
+        AppCompatDelegate.setDefaultNightMode(appPrefs.themeMode)
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)

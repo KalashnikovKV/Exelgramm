@@ -2,21 +2,20 @@ package com.example.exelgramm.data.remote
 
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
+import javax.inject.Inject
+import javax.inject.Named
+import javax.inject.Singleton
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
-import java.util.concurrent.TimeUnit
 
 /**
  * Запасное чтение через публичный CSV (если таблица доступна «все с ссылкой — просмотр»).
  */
-object CsvSheetReader {
-
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .followRedirects(true)
-        .build()
+@Singleton
+class CsvSheetReader @Inject constructor(
+    @param:Named("default") private val httpClient: OkHttpClient,
+) {
 
     fun fetch(spreadsheetId: String, sheetName: String): Result<List<Message>> = runCatching {
         val sheet = URLEncoder.encode(sheetName, Charsets.UTF_8.name())
@@ -27,7 +26,7 @@ object CsvSheetReader {
             .get()
             .header("User-Agent", "Exelgramm/1.0 (Android)")
             .build()
-        http.newCall(request).execute().use { response ->
+        httpClient.newCall(request).execute().use { response ->
             val body = response.body?.string().orEmpty()
             if (!response.isSuccessful || body.trimStart().startsWith("<")) {
                 throw IllegalStateException("CSV недоступен (нужен доступ «просмотр» по ссылке)")

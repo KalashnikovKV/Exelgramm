@@ -7,13 +7,11 @@ import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import com.example.exelgramm.R
 import com.example.exelgramm.databinding.FragmentChatConfigBinding
+import com.example.exelgramm.ui.common.collectOnStarted
+import com.example.exelgramm.ui.common.syncFromState
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class ChatConfigFragment : Fragment() {
@@ -37,32 +35,24 @@ class ChatConfigFragment : Fragment() {
 
         binding.saveConfigButton.setOnClickListener { saveConfig() }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    if (binding.sheetUrlInput.text.isNullOrEmpty() && state.sheetUrl.isNotEmpty()) {
-                        binding.sheetUrlInput.setText(state.sheetUrl)
-                    }
-                    if (binding.webAppUrlInput.text.isNullOrEmpty() && state.webAppUrl.isNotEmpty()) {
-                        binding.webAppUrlInput.setText(state.webAppUrl)
-                    }
-                    if (binding.sheetNameInput.text.isNullOrEmpty()) {
-                        binding.sheetNameInput.setText(state.sheetName)
-                    }
-                }
+        collectOnStarted(viewModel.uiState) { state ->
+            if (binding.sheetUrlInput.text.isNullOrEmpty() && state.sheetUrl.isNotEmpty()) {
+                binding.sheetUrlInput.syncFromState(state.sheetUrl)
+            }
+            if (binding.webAppUrlInput.text.isNullOrEmpty() && state.webAppUrl.isNotEmpty()) {
+                binding.webAppUrlInput.syncFromState(state.webAppUrl)
+            }
+            if (binding.sheetNameInput.text.isNullOrEmpty()) {
+                binding.sheetNameInput.syncFromState(state.sheetName)
             }
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.effects.collect { effect ->
-                    when (effect) {
-                        is ChatConfigEffect.ShowError ->
-                            Toast.makeText(requireContext(), effect.resId, Toast.LENGTH_LONG).show()
-                        is ChatConfigEffect.ShowSaved ->
-                            Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
-                    }
-                }
+        collectOnStarted(viewModel.effects) { effect ->
+            when (effect) {
+                is ChatConfigEffect.ShowError ->
+                    Toast.makeText(requireContext(), effect.resId, Toast.LENGTH_LONG).show()
+                is ChatConfigEffect.ShowSaved ->
+                    Toast.makeText(requireContext(), R.string.config_saved, Toast.LENGTH_SHORT).show()
             }
         }
     }

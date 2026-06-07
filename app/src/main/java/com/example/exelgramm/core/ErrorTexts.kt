@@ -26,6 +26,9 @@ object ErrorTexts {
                 is AppError.ApiError ->
                     return t.detail.take(300)
 
+                is AppError.ChatNotConfigured ->
+                    return "Чат не настроен."
+
                 is NetworkOnMainThreadException ->
                     return "Сетевая ошибка приложения. Обновите сборку."
 

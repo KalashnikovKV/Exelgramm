@@ -1,11 +1,10 @@
 package com.example.exelgramm.ui.profile
 
-import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exelgramm.core.DEFAULT_SHEET_NAME
 import com.example.exelgramm.data.local.SessionStore
-import com.example.exelgramm.data.repository.ChatConfigValidator
+import com.example.exelgramm.data.repository.SaveChatConfigUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,13 +23,14 @@ data class ChatConfigUiState(
 )
 
 sealed interface ChatConfigEffect {
-    data class ShowError(@param:StringRes val resId: Int) : ChatConfigEffect
+    data class ShowError(@param:androidx.annotation.StringRes val resId: Int) : ChatConfigEffect
     data object ShowSaved : ChatConfigEffect
 }
 
 @HiltViewModel
 class ChatConfigViewModel @Inject constructor(
     private val store: SessionStore,
+    private val saveChatConfigUseCase: SaveChatConfigUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatConfigUiState())
@@ -49,20 +49,13 @@ class ChatConfigViewModel @Inject constructor(
     }
 
     fun save(sheetUrl: String, webAppUrl: String, sheetName: String) {
-        when (val result = ChatConfigValidator.validate(sheetUrl, webAppUrl)) {
-            is ChatConfigValidator.Result.Failure ->
-                viewModelScope.launch { _effects.send(ChatConfigEffect.ShowError(result.errorResId)) }
-
-            is ChatConfigValidator.Result.Success ->
-                viewModelScope.launch {
-                    store.saveChatConfig(
-                        sheetUrl = sheetUrl,
-                        spreadsheetId = result.spreadsheetId,
-                        sheetName = sheetName.ifBlank { DEFAULT_SHEET_NAME },
-                        webAppUrl = webAppUrl,
-                    )
+        viewModelScope.launch {
+            when (val result = saveChatConfigUseCase(sheetUrl, webAppUrl, sheetName)) {
+                is SaveChatConfigUseCase.Result.ValidationError ->
+                    _effects.send(ChatConfigEffect.ShowError(result.errorResId))
+                is SaveChatConfigUseCase.Result.Success ->
                     _effects.send(ChatConfigEffect.ShowSaved)
-                }
+            }
         }
     }
 }

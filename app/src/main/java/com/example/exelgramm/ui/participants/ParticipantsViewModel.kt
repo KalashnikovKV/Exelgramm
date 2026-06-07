@@ -2,10 +2,8 @@ package com.example.exelgramm.ui.participants
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.exelgramm.core.TimeFormats
 import com.example.exelgramm.data.local.SessionStore
 import com.example.exelgramm.data.local.db.MessageDao
-import com.example.exelgramm.domain.model.MessageType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -44,21 +42,7 @@ class ParticipantsViewModel @Inject constructor(
             }
             _isConfigured.value = true
             val messages = messageDao.getAll(session.spreadsheetId, session.sheetName)
-            val grouped = messages.groupBy { it.author }
-            val items = grouped.map { (author, msgs) ->
-                val textCount = msgs.count { it.type == MessageType.TEXT }
-                val importantCount = msgs.count { it.type == MessageType.IMPORTANT }
-                val lastTime = msgs.maxByOrNull { it.timestamp }?.timestamp
-                    ?.let { TimeFormats.formatChatTime(it) }.orEmpty()
-                ParticipantItem(
-                    author = author,
-                    totalMessages = msgs.size,
-                    textMessages = textCount,
-                    importantMessages = importantCount,
-                    lastMessageTime = lastTime,
-                )
-            }.sortedByDescending { it.totalMessages }
-            _participants.value = items
+            _participants.value = messages.toParticipantItems()
         }
     }
 }

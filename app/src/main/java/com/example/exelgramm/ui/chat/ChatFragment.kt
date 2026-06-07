@@ -13,16 +13,13 @@ import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.exelgramm.R
-import com.example.exelgramm.data.repository.ChatConfigValidator
 import com.example.exelgramm.databinding.FragmentChatBinding
 import com.example.exelgramm.domain.model.MessageType
+import com.example.exelgramm.ui.common.collectOnStarted
+import com.example.exelgramm.ui.common.syncFromState
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
 class ChatFragment : Fragment() {
@@ -73,28 +70,20 @@ class ChatFragment : Fragment() {
         binding.webAppUrlInput.doAfterTextChanged { viewModel.onWebAppUrlChanged(it?.toString().orEmpty()) }
         binding.sheetNameInput.doAfterTextChanged { viewModel.onSheetNameChanged(it?.toString().orEmpty()) }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    syncField(binding.sheetUrlInput, state.sheetUrlDraft)
-                    syncField(binding.webAppUrlInput, state.webAppUrlDraft)
-                    syncField(binding.sheetNameInput, state.sheetNameDraft)
-                    render(state)
-                }
-            }
+        collectOnStarted(viewModel.uiState) { state ->
+            binding.sheetUrlInput.syncFromState(state.sheetUrlDraft)
+            binding.webAppUrlInput.syncFromState(state.webAppUrlDraft)
+            binding.sheetNameInput.syncFromState(state.sheetNameDraft)
+            render(state)
         }
 
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.effects.collect { effect ->
-                    when (effect) {
-                        is ChatEffect.ShowToast -> Toast.makeText(
-                            requireContext(),
-                            effect.message,
-                            Toast.LENGTH_LONG,
-                        ).show()
-                    }
-                }
+        collectOnStarted(viewModel.effects) { effect ->
+            when (effect) {
+                is ChatEffect.ShowError -> Toast.makeText(
+                    requireContext(),
+                    effect.resId,
+                    Toast.LENGTH_LONG,
+                ).show()
             }
         }
     }
@@ -137,13 +126,6 @@ class ChatFragment : Fragment() {
                 if (isImportant) R.color.msg_type_important_color else R.color.tg_text_secondary,
             ),
         )
-    }
-
-    private fun syncField(field: android.widget.EditText, value: String) {
-        val current = field.text?.toString().orEmpty()
-        if (current != value && !field.isFocused) {
-            field.setText(value)
-        }
     }
 
     private fun syncMessageInput(text: String) {
@@ -206,16 +188,12 @@ class ChatFragment : Fragment() {
     }
 
     private fun connectChat() {
-        val sheetUrl = viewModel.uiState.value.sheetUrlDraft
-        val webAppUrl = viewModel.uiState.value.webAppUrlDraft
-        val sheetName = viewModel.uiState.value.sheetNameDraft.ifBlank { getString(R.string.default_sheet_name) }
-
-        when (val result = ChatConfigValidator.validate(sheetUrl, webAppUrl)) {
-            is ChatConfigValidator.Result.Failure ->
-                Toast.makeText(requireContext(), result.errorResId, Toast.LENGTH_LONG).show()
-            is ChatConfigValidator.Result.Success ->
-                viewModel.saveChatConfig(sheetUrl, result.spreadsheetId, webAppUrl, sheetName)
-        }
+        val state = viewModel.uiState.value
+        viewModel.saveChatConfig(
+            sheetUrl = state.sheetUrlDraft,
+            webAppUrl = state.webAppUrlDraft,
+            sheetName = state.sheetNameDraft.ifBlank { getString(R.string.default_sheet_name) },
+        )
     }
 
     override fun onDestroyView() {

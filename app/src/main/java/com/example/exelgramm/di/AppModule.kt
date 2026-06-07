@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.Room
 import com.example.exelgramm.data.local.db.AppDatabase
 import com.example.exelgramm.data.local.db.MessageDao
-import com.example.exelgramm.data.remote.AppsScriptApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -25,8 +24,4 @@ object AppModule {
 
     @Provides
     fun provideMessageDao(db: AppDatabase): MessageDao = db.messageDao()
-
-    @Singleton
-    @Provides
-    fun provideAppsScriptApi(): AppsScriptApi = AppsScriptApi()
 }
