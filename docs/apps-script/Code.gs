@@ -9,10 +9,10 @@
  * 5. Скопируйте URL (.../exec) в приложение (Профиль → URL веб-приложения).
  *
  * Лист: по умолчанию «Messages»; если нет — используется первый лист.
- * Строка 1: id | timestamp | author | text
+ * Строка 1: id | timestamp | author | text | type
  */
 
-var HEADERS = ['id', 'timestamp', 'author', 'text'];
+var HEADERS = ['id', 'timestamp', 'author', 'text', 'type'];
 
 function doGet(e) {
   try {
@@ -79,6 +79,7 @@ function doPost(e) {
     var timestamp = body.timestamp;
     var author = body.author;
     var text = body.text;
+    var type = body.type || 'text';
 
     if (!id || !author || !text) {
       return json_({ ok: false, error: 'Required: id, author, text' });
@@ -90,7 +91,8 @@ function doPost(e) {
       String(id),
       timestamp || new Date().toISOString(),
       String(author),
-      String(text)
+      String(text),
+      String(type)
     ]);
     return json_({ ok: true });
   } catch (err) {
@@ -110,14 +112,23 @@ function getSheet_(spreadsheetId, sheetName) {
 }
 
 function ensureHeaders_(sheet) {
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(HEADERS);
     return;
   }
-  var first = sheet.getRange(1, 1, 1, HEADERS.length).getValues()[0];
-  var empty = first.every(function (c) { return c === '' || c === null; });
+  var first = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var headers = first.map(function (c) { return String(c).trim().toLowerCase(); });
+  var empty = headers.every(function (c) { return c === '' || c === null; });
   if (empty) {
     sheet.getRange(1, 1, 1, HEADERS.length).setValues([HEADERS]);
+    return;
+  }
+  for (var i = 0; i < HEADERS.length; i++) {
+    if (headers.indexOf(HEADERS[i]) < 0) {
+      sheet.getRange(1, headers.length + 1).setValue(HEADERS[i]);
+      headers.push(HEADERS[i]);
+    }
   }
 }
 
@@ -131,13 +142,15 @@ function readMessages_(sheet) {
     id: indexOf_(headers, 'id'),
     timestamp: indexOf_(headers, 'timestamp'),
     author: indexOf_(headers, 'author'),
-    text: indexOf_(headers, 'text')
+    text: indexOf_(headers, 'text'),
+    type: indexOf_(headers, 'type')
   };
 
   var textCol = idx.text >= 0 ? idx.text : 3;
   var idCol = idx.id >= 0 ? idx.id : 0;
   var timeCol = idx.timestamp >= 0 ? idx.timestamp : 1;
   var authorCol = idx.author >= 0 ? idx.author : 2;
+  var typeCol = idx.type;
 
   var out = [];
   for (var i = 1; i < data.length; i++) {
@@ -148,7 +161,8 @@ function readMessages_(sheet) {
       id: cell_(row, idCol) || 'row_' + (i + 1),
       timestamp: cell_(row, timeCol) || '',
       author: cell_(row, authorCol) || 'unknown',
-      text: text
+      text: text,
+      type: typeCol >= 0 ? (cell_(row, typeCol) || 'text') : 'text'
     });
   }
   return out;

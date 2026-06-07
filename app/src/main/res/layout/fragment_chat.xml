@@ -137,6 +137,19 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent">
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnTypeToggle"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:padding="4dp"
+                android:text="☆"
+                android:textSize="20sp"
+                android:textColor="@color/tg_text_secondary"
+                android:contentDescription="@string/msg_type_toggle_hint" />
+
             <EditText
                 android:id="@+id/messageInput"
                 android:layout_width="0dp"

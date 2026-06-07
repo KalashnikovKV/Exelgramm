@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.exelgramm.domain.model.Message
+import com.example.exelgramm.domain.model.MessageType
 
 @Entity(
     tableName = "messages",
@@ -16,8 +17,15 @@ data class MessageEntity(
     val text: String,
     val spreadsheetId: String,
     val sheetName: String,
+    val type: String = MessageType.TEXT,
 ) {
-    fun toDomain(): Message = Message(id = id, timestamp = timestamp, author = author, text = text)
+    fun toDomain(): Message = Message(
+        id = id,
+        timestamp = timestamp,
+        author = author,
+        text = text,
+        type = type,
+    )
 }
 
 fun Message.toEntity(spreadsheetId: String, sheetName: String) = MessageEntity(
@@ -27,4 +35,5 @@ fun Message.toEntity(spreadsheetId: String, sheetName: String) = MessageEntity(
     text = text,
     spreadsheetId = spreadsheetId,
     sheetName = sheetName,
+    type = type,
 )

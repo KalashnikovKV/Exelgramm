@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="tg_nav_bg">#17212B</color>
+    <color name="tg_primary">#5BAFED</color>
     <color name="tg_chat_bg">#0E1621</color>
     <color name="tg_bubble_in">#182533</color>
     <color name="tg_bubble_out">#2B5278</color>
@@ -9,4 +10,7 @@
     <color name="tg_input_bar_bg">#1C2733</color>
     <color name="tg_input_bar_divider">#2A3A47</color>
     <color name="tg_input_stroke">#4A6278</color>
+    <color name="msg_type_important_color">#FFB300</color>
+    <color name="msg_type_important_bg">#332B00</color>
+    <color name="tg_surface">#1C2733</color>
 </resources>

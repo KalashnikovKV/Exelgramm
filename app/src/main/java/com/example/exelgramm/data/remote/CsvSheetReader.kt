@@ -1,6 +1,7 @@
 package com.example.exelgramm.data.remote
 
 import com.example.exelgramm.domain.model.Message
+import com.example.exelgramm.domain.model.MessageType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.URLEncoder
@@ -44,16 +45,20 @@ object CsvSheetReader {
         val idIdx = headers.indexOf("id").takeIf { it >= 0 } ?: 0
         val timeIdx = headers.indexOf("timestamp").takeIf { it >= 0 } ?: 1
         val authorIdx = headers.indexOf("author").takeIf { it >= 0 } ?: 2
+        val typeIdx = headers.indexOf("type").takeIf { it >= 0 } ?: -1
 
         return lines.drop(1).mapNotNull { line ->
             val cols = parseRow(line)
             val text = cols.getOrNull(textIdx)?.trim().orEmpty()
             if (text.isEmpty()) return@mapNotNull null
+            val type = if (typeIdx >= 0) cols.getOrNull(typeIdx)?.trim().orEmpty().ifBlank { MessageType.TEXT }
+                       else MessageType.TEXT
             Message(
                 id = cols.getOrNull(idIdx)?.trim().orEmpty().ifBlank { "row_${line.hashCode()}" },
                 timestamp = cols.getOrNull(timeIdx)?.trim().orEmpty(),
                 author = cols.getOrNull(authorIdx)?.trim().orEmpty().ifBlank { "unknown" },
                 text = text,
+                type = type,
             )
         }
     }

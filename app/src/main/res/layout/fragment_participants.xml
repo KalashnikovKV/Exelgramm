@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/tg_chat_bg"
+    android:orientation="vertical">
+
+    <!-- Заголовки колонок таблицы -->
+    <LinearLayout
+        android:id="@+id/tableHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/tg_input_bar_bg"
+        android:orientation="horizontal"
+        android:paddingVertical="10dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="3"
+            android:paddingStart="16dp"
+            android:text="@string/col_author"
+            android:textColor="@color/tg_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.5"
+            android:gravity="center"
+            android:text="@string/col_text_msgs"
+            android:textColor="@color/tg_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1.5"
+            android:gravity="center"
+            android:text="@string/col_important_msgs"
+            android:textColor="@color/tg_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="2"
+            android:gravity="center"
+            android:paddingEnd="8dp"
+            android:text="@string/col_last_msg"
+            android:textColor="@color/tg_text_primary"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Пусто — чат не настроен -->
+    <TextView
+        android:id="@+id/notConfiguredText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="32dp"
+        android:text="@string/participants_not_configured"
+        android:textColor="@color/tg_text_secondary"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
+    <!-- Пусто — сообщений нет -->
+    <TextView
+        android:id="@+id/emptyText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:padding="32dp"
+        android:text="@string/participants_empty"
+        android:textColor="@color/tg_text_secondary"
+        android:textSize="16sp"
+        android:visibility="gone" />
+
+    <!-- Список участников -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/participantsList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@color/tg_chat_bg" />
+
+</LinearLayout>

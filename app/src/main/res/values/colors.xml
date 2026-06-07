@@ -14,4 +14,7 @@
     <color name="tg_input_bar_bg">#FFFFFF</color>
     <color name="tg_input_bar_divider">#D9DDE3</color>
     <color name="tg_input_stroke">#9EAEBF</color>
+    <color name="msg_type_important_color">#F57F17</color>
+    <color name="msg_type_important_bg">#FFF9C4</color>
+    <color name="tg_surface">#FFFFFF</color>
 </resources>

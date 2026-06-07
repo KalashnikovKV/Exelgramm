@@ -3,6 +3,7 @@ package com.example.exelgramm
 import android.content.Context
 import android.content.res.ColorStateList
 import android.os.Bundle
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
@@ -31,7 +32,7 @@ class MainActivity : AppCompatActivity() {
             .getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         AppCompatDelegate.setDefaultNightMode(savedTheme)
         super.onCreate(savedInstanceState)
-        WindowCompat.setDecorFitsSystemWindows(window, false)
+        enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -49,7 +50,7 @@ class MainActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
 
-        val topLevelDestinations = setOf(R.id.nav_chat, R.id.nav_profile, R.id.nav_settings)
+        val topLevelDestinations = setOf(R.id.nav_chat, R.id.nav_profile, R.id.nav_settings, R.id.nav_participants)
         val appBarConfig = AppBarConfiguration(topLevelDestinations)
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfig)
         NavigationUI.setupWithNavController(binding.bottomNav, navController)

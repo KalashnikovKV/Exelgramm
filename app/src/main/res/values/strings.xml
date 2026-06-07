@@ -62,4 +62,28 @@
     <string name="error_invalid_sheet_url">Некорректная ссылка на таблицу</string>
     <string name="error_web_app_url_required">Укажите URL веб-приложения Apps Script</string>
     <string name="error_web_app_must_be_exec">Нужен URL вида script.google.com/macros/s/…/exec (не googleusercontent)</string>
+
+    <!-- Message types -->
+    <string name="msg_type_text">Обычное</string>
+    <string name="msg_type_important">Важное</string>
+    <string name="msg_type_badge">⭐ Важное</string>
+    <string name="msg_type_toggle_hint">Тип сообщения</string>
+
+    <!-- Participants/Statistics screen -->
+    <string name="nav_participants">Статистика</string>
+    <string name="col_author">Автор</string>
+    <string name="col_text_msgs">Обычных</string>
+    <string name="col_important_msgs">Важных</string>
+    <string name="col_last_msg">Последнее</string>
+    <string name="participants_empty">Нет данных.\nСначала откройте чат — участники\nпоявятся после загрузки сообщений.</string>
+    <string name="participants_not_configured">Подключите чат в настройках,\nчтобы видеть участников.</string>
+
+    <!-- Participant detail -->
+    <string name="participant_detail_title">Участник</string>
+    <string name="participant_messages_label">Сообщения</string>
+    <string name="participant_stat_total">Всего</string>
+    <string name="participant_stat_text">Обычных</string>
+    <string name="participant_stat_important">Важных</string>
+    <string name="participant_first_msg">Первое:</string>
+    <string name="participant_last_msg">Последнее:</string>
 </resources>

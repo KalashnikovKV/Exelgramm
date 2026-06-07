@@ -4,10 +4,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.exelgramm.R
+import com.example.exelgramm.domain.model.MessageType
 
 /**
  * Работает с [MessageUiItem]: тип (incoming/outgoing) и время уже вычислены во ViewModel,
@@ -37,6 +39,7 @@ class MessageAdapter(
     }
 
     class Holder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val typeBadge: TextView = itemView.findViewById(R.id.messageTypeBadge)
         private val author: TextView = itemView.findViewById(R.id.messageAuthor)
         private val text: TextView = itemView.findViewById(R.id.messageText)
         private val time: TextView = itemView.findViewById(R.id.messageTime)
@@ -49,6 +52,7 @@ class MessageAdapter(
                 is MessageUiItem.Incoming -> {
                     itemView.setOnLongClickListener(null)
                     itemView.isLongClickable = false
+                    typeBadge.isVisible = item.messageType == MessageType.IMPORTANT
                     author.visibility = View.VISIBLE
                     author.text = item.author
                     text.text = item.text
@@ -60,6 +64,7 @@ class MessageAdapter(
                         onOutgoingLongClick(it, item)
                         true
                     }
+                    typeBadge.isVisible = item.messageType == MessageType.IMPORTANT
                     author.visibility = View.GONE
                     text.text = item.text
                     time.text = item.time

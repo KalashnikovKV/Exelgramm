@@ -8,6 +8,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
@@ -19,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.exelgramm.R
 import com.example.exelgramm.data.repository.ChatConfigValidator
 import com.example.exelgramm.databinding.FragmentChatBinding
+import com.example.exelgramm.domain.model.MessageType
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -53,6 +55,7 @@ class ChatFragment : Fragment() {
         binding.chatRefresh.setOnRefreshListener { viewModel.refresh() }
         binding.connectButton.setOnClickListener { connectChat() }
         binding.sendButton.setOnClickListener { sendFromInput() }
+        binding.btnTypeToggle.setOnClickListener { viewModel.toggleInputType() }
 
         binding.messageInput.doAfterTextChanged { text ->
             viewModel.onInputChanged(text?.toString().orEmpty())
@@ -66,21 +69,16 @@ class ChatFragment : Fragment() {
             }
         }
 
+        binding.sheetUrlInput.doAfterTextChanged { viewModel.onSheetUrlChanged(it?.toString().orEmpty()) }
+        binding.webAppUrlInput.doAfterTextChanged { viewModel.onWebAppUrlChanged(it?.toString().orEmpty()) }
+        binding.sheetNameInput.doAfterTextChanged { viewModel.onSheetNameChanged(it?.toString().orEmpty()) }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
-                    // Заполнить поля при первой загрузке сессии
-                    if (binding.sheetUrlInput.text.isNullOrEmpty() && state.session.sheetUrl.isNotEmpty()) {
-                        binding.sheetUrlInput.setText(state.session.sheetUrl)
-                    }
-                    if (binding.webAppUrlInput.text.isNullOrEmpty() && state.session.webAppUrl.isNotEmpty()) {
-                        binding.webAppUrlInput.setText(state.session.webAppUrl)
-                    }
-                    if (binding.sheetNameInput.text.isNullOrEmpty()) {
-                        binding.sheetNameInput.setText(
-                            state.session.sheetName.ifBlank { getString(R.string.default_sheet_name) },
-                        )
-                    }
+                    syncField(binding.sheetUrlInput, state.sheetUrlDraft)
+                    syncField(binding.webAppUrlInput, state.webAppUrlDraft)
+                    syncField(binding.sheetNameInput, state.sheetNameDraft)
                     render(state)
                 }
             }
@@ -120,12 +118,31 @@ class ChatFragment : Fragment() {
         }
 
         syncMessageInput(state.inputText)
+        renderTypeToggle(state.inputType)
 
         state.error?.let { msg ->
             binding.errorText.isVisible = configured
             binding.errorText.text = msg
         } ?: run {
             binding.errorText.isVisible = false
+        }
+    }
+
+    private fun renderTypeToggle(inputType: String) {
+        val isImportant = inputType == MessageType.IMPORTANT
+        binding.btnTypeToggle.text = if (isImportant) "★" else "☆"
+        binding.btnTypeToggle.setTextColor(
+            ContextCompat.getColor(
+                requireContext(),
+                if (isImportant) R.color.msg_type_important_color else R.color.tg_text_secondary,
+            ),
+        )
+    }
+
+    private fun syncField(field: android.widget.EditText, value: String) {
+        val current = field.text?.toString().orEmpty()
+        if (current != value && !field.isFocused) {
+            field.setText(value)
         }
     }
 
@@ -189,10 +206,9 @@ class ChatFragment : Fragment() {
     }
 
     private fun connectChat() {
-        val sheetUrl = binding.sheetUrlInput.text?.toString().orEmpty()
-        val webAppUrl = binding.webAppUrlInput.text?.toString().orEmpty()
-        val sheetName = binding.sheetNameInput.text?.toString()
-            .orEmpty().ifBlank { getString(R.string.default_sheet_name) }
+        val sheetUrl = viewModel.uiState.value.sheetUrlDraft
+        val webAppUrl = viewModel.uiState.value.webAppUrlDraft
+        val sheetName = viewModel.uiState.value.sheetNameDraft.ifBlank { getString(R.string.default_sheet_name) }
 
         when (val result = ChatConfigValidator.validate(sheetUrl, webAppUrl)) {
             is ChatConfigValidator.Result.Failure ->

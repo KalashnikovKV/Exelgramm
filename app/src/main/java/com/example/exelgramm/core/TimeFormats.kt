@@ -17,6 +17,7 @@ object TimeFormats {
         .ofPattern("yyyy-MM-dd'T'HH:mm:ss")
 
     private val DISPLAY = DateTimeFormatter.ofPattern("HH:mm")
+    private val FULL_DISPLAY = DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm")
 
     fun nowIsoUtc(): String = ISO_WRITE.format(Instant.now())
 
@@ -26,6 +27,17 @@ object TimeFormats {
             val ldt = LocalDateTime.parse(iso.take(19), ISO_READ)
             val zdt = ldt.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault())
             DISPLAY.format(zdt)
+        } catch (_: DateTimeParseException) {
+            iso.take(16)
+        }
+    }
+
+    fun formatFullDateTime(iso: String): String {
+        if (iso.isBlank()) return ""
+        return try {
+            val ldt = LocalDateTime.parse(iso.take(19), ISO_READ)
+            val zdt = ldt.atZone(ZoneOffset.UTC).withZoneSameInstant(ZoneId.systemDefault())
+            FULL_DISPLAY.format(zdt)
         } catch (_: DateTimeParseException) {
             iso.take(16)
         }

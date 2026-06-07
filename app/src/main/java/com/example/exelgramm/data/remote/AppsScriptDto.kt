@@ -1,6 +1,7 @@
 package com.example.exelgramm.data.remote
 
 import com.example.exelgramm.domain.model.Message
+import com.example.exelgramm.domain.model.MessageType
 import com.google.gson.annotations.SerializedName
 
 data class MessagesResponse(
@@ -14,12 +15,14 @@ data class MessageDto(
     val timestamp: String = "",
     val author: String = "",
     val text: String = "",
+    val type: String = MessageType.TEXT,
 ) {
     fun toDomain(): Message = Message(
         id = id,
         timestamp = timestamp,
         author = author,
         text = text,
+        type = type,
     )
 }
 
@@ -31,6 +34,7 @@ data class PostMessageRequest(
     val timestamp: String,
     val author: String,
     val text: String,
+    val type: String = MessageType.TEXT,
 )
 
 data class UpdateMessageRequest(

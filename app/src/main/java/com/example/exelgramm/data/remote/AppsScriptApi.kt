@@ -46,6 +46,7 @@ class AppsScriptApi(
             timestamp = message.timestamp,
             author = message.author,
             text = message.text,
+            type = message.type,
         )
         val body = executePost(webAppUrl, gson.toJson(payload))
         val response = parseJson(body, SimpleResponse::class.java)

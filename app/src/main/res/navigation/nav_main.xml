@@ -37,4 +37,23 @@
         android:name="com.example.exelgramm.ui.profile.ChatConfigFragment"
         android:label="@string/nav_settings" />
 
+    <fragment
+        android:id="@+id/nav_participants"
+        android:name="com.example.exelgramm.ui.participants.ParticipantsFragment"
+        android:label="@string/nav_participants">
+        <action
+            android:id="@+id/action_participants_to_detail"
+            app:destination="@id/participantDetailFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/participantDetailFragment"
+        android:name="com.example.exelgramm.ui.participants.ParticipantDetailFragment"
+        android:label="@string/participant_detail_title">
+        <argument
+            android:name="authorName"
+            app:argType="string"
+            android:defaultValue="" />
+    </fragment>
+
 </navigation>

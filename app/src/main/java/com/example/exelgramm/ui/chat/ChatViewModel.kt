@@ -9,6 +9,7 @@ import com.example.exelgramm.data.local.SessionStore
 import com.example.exelgramm.data.local.UserSession
 import com.example.exelgramm.data.repository.ChatRepository
 import com.example.exelgramm.domain.model.Message
+import com.example.exelgramm.domain.model.MessageType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import kotlinx.coroutines.Job
@@ -29,6 +30,10 @@ data class ChatUiState(
     val isLoading: Boolean = false,
     val error: String? = null,
     val inputText: String = "",
+    val inputType: String = MessageType.TEXT,
+    val sheetUrlDraft: String = "",
+    val webAppUrlDraft: String = "",
+    val sheetNameDraft: String = "",
 )
 
 sealed interface ChatEffect {
@@ -54,7 +59,14 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             sessionStore.session.collect { session ->
                 val previousDisplayName = _uiState.value.session.displayName
-                _uiState.update { it.copy(session = session) }
+                _uiState.update { state ->
+                    state.copy(
+                        session = session,
+                        sheetUrlDraft = if (state.sheetUrlDraft.isEmpty()) session.sheetUrl else state.sheetUrlDraft,
+                        webAppUrlDraft = if (state.webAppUrlDraft.isEmpty()) session.webAppUrl else state.webAppUrlDraft,
+                        sheetNameDraft = if (state.sheetNameDraft.isEmpty()) session.sheetName else state.sheetNameDraft,
+                    )
+                }
 
                 if (session.displayName != previousDisplayName) {
                     publishMessages(session)
@@ -93,9 +105,21 @@ class ChatViewModel @Inject constructor(
         _uiState.update { it.copy(inputText = text) }
     }
 
+    fun onSheetUrlChanged(text: String) { _uiState.update { it.copy(sheetUrlDraft = text) } }
+    fun onWebAppUrlChanged(text: String) { _uiState.update { it.copy(webAppUrlDraft = text) } }
+    fun onSheetNameChanged(text: String) { _uiState.update { it.copy(sheetNameDraft = text) } }
+
+    fun toggleInputType() {
+        val current = _uiState.value.inputType
+        _uiState.update {
+            it.copy(inputType = if (current == MessageType.TEXT) MessageType.IMPORTANT else MessageType.TEXT)
+        }
+    }
+
     fun sendMessage() {
         val session = _uiState.value.session
         val text = _uiState.value.inputText.trim()
+        val type = _uiState.value.inputType
         if (text.isEmpty() || !session.isChatConfigured) return
 
         val optimistic = Message(
@@ -103,10 +127,11 @@ class ChatViewModel @Inject constructor(
             timestamp = TimeFormats.nowIsoUtc(),
             author = session.displayName,
             text = text,
+            type = type,
         )
 
         rawMessages = (rawMessages + optimistic).sortedBy { it.timestamp }
-        _uiState.update { it.copy(inputText = "", error = null) }
+        _uiState.update { it.copy(inputText = "", inputType = MessageType.TEXT, error = null) }
         publishMessages(session)
 
         viewModelScope.launch {
@@ -214,9 +239,9 @@ class ChatViewModel @Inject constructor(
 
     private fun Message.toUiItem(displayName: String): MessageUiItem =
         if (isMine(displayName)) {
-            MessageUiItem.Outgoing(id, text, TimeFormats.formatChatTime(timestamp))
+            MessageUiItem.Outgoing(id, text, TimeFormats.formatChatTime(timestamp), type)
         } else {
-            MessageUiItem.Incoming(id, author, text, TimeFormats.formatChatTime(timestamp))
+            MessageUiItem.Incoming(id, author, text, TimeFormats.formatChatTime(timestamp), type)
         }
 
     override fun onCleared() {
