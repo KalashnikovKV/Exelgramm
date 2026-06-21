@@ -2,6 +2,8 @@ package com.example.exelgramm
 
 import android.content.res.ColorStateList
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -25,8 +27,19 @@ import dagger.hilt.android.EntryPointAccessors
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity() {
 
+    private val bottomNavDestinations = setOf(
+        R.id.nav_chat,
+        R.id.nav_profile,
+        R.id.nav_settings,
+        R.id.nav_participants,
+    )
+
     private lateinit var binding: ActivityMainBinding
     private lateinit var navController: NavController
+    private var navBg: Int = 0
+    private var chatBg: Int = 0
+    private var white: Int = 0
+    private var iconOnChatBg: Int = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val appPrefs = EntryPointAccessors.fromApplication(
@@ -38,6 +51,11 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        navBg = ContextCompat.getColor(this, R.color.tg_nav_bg)
+        chatBg = ContextCompat.getColor(this, R.color.tg_chat_bg)
+        white = ContextCompat.getColor(this, R.color.white)
+        iconOnChatBg = ContextCompat.getColor(this, R.color.tg_text_primary)
 
         applyBrandChrome()
         styleBottomNav()
@@ -53,53 +71,90 @@ class MainActivity : AppCompatActivity() {
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
 
-        val topLevelDestinations = setOf(R.id.nav_chat, R.id.nav_profile, R.id.nav_settings, R.id.nav_participants)
+        val topLevelDestinations = bottomNavDestinations + R.id.loginFragment
         val appBarConfig = AppBarConfiguration(topLevelDestinations)
         NavigationUI.setupActionBarWithNavController(this, navController, appBarConfig)
         NavigationUI.setupWithNavController(binding.bottomNav, navController)
 
-        val white = ContextCompat.getColor(this, R.color.white)
-
-        binding.toolbar.setOnMenuItemClickListener { item ->
-            if (item.itemId == R.id.action_close_to_chat) {
-                navigateToChat()
-                true
-            } else {
-                false
-            }
-        }
-
         navController.addOnDestinationChangedListener { _, destination, _ ->
-            val isLoginScreen = destination.id == R.id.loginFragment
-            binding.statusBarBackground.isVisible = !isLoginScreen
-            binding.toolbar.isVisible = !isLoginScreen
-            binding.bottomNav.isVisible = !isLoginScreen
-
-            binding.toolbar.menu.clear()
-            if (destination.id == R.id.participantDetailFragment ||
-                destination.id == R.id.messageDetailFragment
-            ) {
-                binding.toolbar.inflateMenu(R.menu.toolbar_detail)
-                binding.toolbar.menu.findItem(R.id.action_close_to_chat)?.icon?.setTint(white)
-            }
-
-            if (!isLoginScreen) {
-                binding.toolbar.navigationIcon?.setTint(white)
-            }
+            updateToolbarForDestination(destination.id)
         }
+        updateToolbarForDestination(navController.currentDestination?.id ?: R.id.loginFragment)
     }
 
-    private fun navigateToChat() {
-        val chatItem = binding.bottomNav.menu.findItem(R.id.nav_chat) ?: return
-        NavigationUI.onNavDestinationSelected(chatItem, navController)
-        binding.bottomNav.menu.findItem(R.id.nav_chat)?.isChecked = true
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        when (navController.currentDestination?.id) {
+            R.id.loginFragment -> {
+                menuInflater.inflate(R.menu.toolbar_login, menu)
+                menu.findItem(R.id.action_faq)?.icon?.setTint(iconOnChatBg)
+            }
+            R.id.participantDetailFragment,
+            R.id.messageDetailFragment,
+            -> {
+                menuInflater.inflate(R.menu.toolbar_detail, menu)
+                menu.findItem(R.id.action_close_to_chat)?.icon?.setTint(white)
+            }
+        }
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean =
+        when (item.itemId) {
+            R.id.action_close_to_chat -> {
+                closeDetailToOriginTab()
+                true
+            }
+            R.id.action_faq -> {
+                navController.navigate(R.id.action_login_to_faq)
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
+
+    private fun updateToolbarForDestination(destinationId: Int) {
+        val isAuthFlow = destinationId == R.id.loginFragment ||
+            destinationId == R.id.faqFragment
+
+        binding.statusBarBackground.isVisible = true
+        binding.toolbar.isVisible = true
+        binding.bottomNav.isVisible = !isAuthFlow
+
+        val toolbarInset = resources.getDimensionPixelSize(R.dimen.toolbar_horizontal_inset)
+        if (destinationId == R.id.loginFragment) {
+            binding.statusBarBackground.setBackgroundColor(chatBg)
+            binding.toolbar.setBackgroundColor(chatBg)
+            supportActionBar?.setDisplayShowTitleEnabled(false)
+            binding.toolbar.title = ""
+            binding.toolbar.navigationIcon = null
+            binding.toolbar.setContentInsetsRelative(0, toolbarInset)
+        } else {
+            binding.statusBarBackground.setBackgroundColor(navBg)
+            binding.toolbar.setBackgroundColor(navBg)
+            supportActionBar?.setDisplayShowTitleEnabled(true)
+            binding.toolbar.navigationIcon?.setTint(white)
+            binding.toolbar.setContentInsetsRelative(toolbarInset, toolbarInset)
+        }
+
+        invalidateOptionsMenu()
+    }
+
+    private fun closeDetailToOriginTab() {
+        while (navController.currentDestination?.id !in bottomNavDestinations) {
+            if (!navController.popBackStack()) break
+        }
+        syncBottomNavSelection()
+    }
+
+    private fun syncBottomNavSelection() {
+        val destinationId = navController.currentDestination?.id ?: return
+        if (destinationId !in bottomNavDestinations) return
+        binding.bottomNav.menu.findItem(destinationId)?.isChecked = true
     }
 
     override fun onSupportNavigateUp(): Boolean =
         navController.navigateUp() || super.onSupportNavigateUp()
 
     private fun applyBrandChrome() {
-        val navBg = ContextCompat.getColor(this, R.color.tg_nav_bg)
         binding.toolbar.setBackgroundColor(navBg)
         binding.statusBarBackground.setBackgroundColor(navBg)
         binding.toolbar.setTitleTextColor(ContextCompat.getColor(this, R.color.white))

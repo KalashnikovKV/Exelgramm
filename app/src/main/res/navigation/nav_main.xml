@@ -20,7 +20,15 @@
             app:destination="@id/nav_chat"
             app:popUpTo="@id/loginFragment"
             app:popUpToInclusive="true" />
+        <action
+            android:id="@+id/action_login_to_faq"
+            app:destination="@id/faqFragment" />
     </fragment>
+
+    <fragment
+        android:id="@+id/faqFragment"
+        android:name="com.example.exelgramm.ui.auth.FaqFragment"
+        android:label="@string/faq_title" />
 
     <fragment
         android:id="@+id/nav_chat"

@@ -14,6 +14,21 @@
     <string name="error_password_too_short">Пароль должен содержать не менее 4 символов</string>
     <string name="error_invalid_credentials">Неверный логин или пароль</string>
 
+    <!-- FAQ -->
+    <string name="faq_title">Частые вопросы</string>
+    <string name="faq_q1">Что такое Exelgramm?</string>
+    <string name="faq_a1">Exelgramm — чат, который хранит сообщения в Google Таблице. Вы подключаете таблицу и веб-приложение Apps Script, после чего переписка синхронизируется с листом.</string>
+    <string name="faq_q2">Как подключить Google Таблицу?</string>
+    <string name="faq_a2">Откройте «Настройки чата» в нижнем меню (после входа) и укажите ссылку на таблицу, URL веб-приложения и имя листа. Нажмите «Подключить» — сообщения загрузятся из таблицы.</string>
+    <string name="faq_q3">Что такое URL веб-приложения?</string>
+    <string name="faq_a3">Это адрес развёрнутого Apps Script вида script.google.com/macros/s/…/exec. Он нужен, чтобы приложение могло читать и записывать сообщения в таблицу. Ссылка googleusercontent не подходит.</string>
+    <string name="faq_q4">Как настроить Apps Script?</string>
+    <string name="faq_a4">В таблице откройте Расширения → Apps Script, вставьте код из документации проекта, сохраните и разверните как веб-приложение с доступом «Все». Скопируйте URL …/exec в настройки чата.</string>
+    <string name="faq_q5">Зачем нужен логин и пароль?</string>
+    <string name="faq_a5">Логин отображается как имя автора в сообщениях. Сейчас это локальная заглушка — позже вход будет заменён на Google. Пароль должен содержать не менее 4 символов.</string>
+    <string name="faq_q6">Что такое важные сообщения?</string>
+    <string name="faq_a6">При отправке можно выбрать тип «Важное» — такие сообщения помечаются звёздочкой в чате и учитываются отдельно в статистике участников.</string>
+
     <!-- Navigation -->
     <string name="nav_chat">Чат</string>
     <string name="nav_profile">Профиль</string>
@@ -39,7 +54,7 @@
     <string name="chat_action_save">Сохранить</string>
     <string name="chat_edit_title">Редактирование сообщения</string>
     <string name="chat_delete_confirm">Удалить это сообщение?</string>
-    <string name="action_close_to_chat">Вернуться в чат</string>
+    <string name="action_close_to_chat">Закрыть</string>
 
     <!-- Profile -->
     <string name="profile_title">Профиль</string>

@@ -17,7 +17,6 @@
         android:layout_width="match_parent"
         android:layout_height="?attr/actionBarSize"
         android:background="@color/tg_nav_bg"
-        app:title="@string/app_name"
         app:titleTextColor="@color/white" />
 
     <androidx.fragment.app.FragmentContainerView

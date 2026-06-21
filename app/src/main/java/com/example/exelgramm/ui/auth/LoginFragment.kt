@@ -42,7 +42,7 @@ class LoginFragment : Fragment() {
         val pad = resources.getDimensionPixelSize(R.dimen.login_content_padding)
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(pad, bars.top + pad, pad, bars.bottom + pad)
+            v.setPadding(pad, pad, pad, bars.bottom + pad)
             insets
         }
 
@@ -53,22 +53,6 @@ class LoginFragment : Fragment() {
                 true
             } else {
                 false
-            }
-        }
-
-        viewLifecycleOwner.lifecycleScope.launch {
-            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.uiState.collect { state ->
-                    if (!state.isRegistered) {
-                        binding.loginTitle.setText(R.string.login_register_title)
-                        binding.loginSubtitle.setText(R.string.login_register_subtitle)
-                        binding.loginButton.setText(R.string.login_button_register)
-                    } else {
-                        binding.loginTitle.setText(R.string.login_title)
-                        binding.loginSubtitle.setText(R.string.login_subtitle)
-                        binding.loginButton.setText(R.string.login_button_sign_in)
-                    }
-                }
             }
         }
 

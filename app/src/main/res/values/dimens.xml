@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <dimen name="login_content_padding">24dp</dimen>
+    <!-- Совпадает с abc_action_bar_content_inset_material — отступ иконки «назад» в Toolbar -->
+    <dimen name="toolbar_horizontal_inset">16dp</dimen>
 </resources>
