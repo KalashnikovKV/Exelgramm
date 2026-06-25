@@ -54,6 +54,9 @@
     <string name="chat_action_save">Сохранить</string>
     <string name="chat_edit_title">Редактирование сообщения</string>
     <string name="chat_delete_confirm">Удалить это сообщение?</string>
+    <string name="chat_message_pending">Отправляется…</string>
+    <string name="chat_message_failed">Не отправлено</string>
+    <string name="chat_load_more">Загрузить ранее</string>
     <string name="action_close_to_chat">Закрыть</string>
 
     <!-- Profile -->

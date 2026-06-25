@@ -13,6 +13,7 @@ import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -21,6 +22,8 @@ import com.example.exelgramm.databinding.FragmentChatBinding
 import com.example.exelgramm.domain.model.MessageType
 import com.example.exelgramm.ui.common.collectOnStarted
 import com.example.exelgramm.ui.common.syncFromState
+import com.example.exelgramm.ui.profile.ChatConfigEffect
+import com.example.exelgramm.ui.profile.ChatConfigViewModel
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -30,6 +33,7 @@ class ChatFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: ChatViewModel by viewModels()
+    private val configViewModel: ChatConfigViewModel by activityViewModels()
 
     private lateinit var adapter: MessageAdapter
 
@@ -55,6 +59,7 @@ class ChatFragment : Fragment() {
         binding.connectButton.setOnClickListener { connectChat() }
         binding.sendButton.setOnClickListener { sendFromInput() }
         binding.btnTypeToggle.setOnClickListener { viewModel.toggleInputType() }
+        binding.loadMoreButton.setOnClickListener { viewModel.loadMoreHistory() }
 
         binding.messageInput.doAfterTextChanged { text ->
             viewModel.onInputChanged(text?.toString().orEmpty())
@@ -68,16 +73,7 @@ class ChatFragment : Fragment() {
             }
         }
 
-        binding.sheetUrlInput.doAfterTextChanged { viewModel.onSheetUrlChanged(it?.toString().orEmpty()) }
-        binding.webAppUrlInput.doAfterTextChanged { viewModel.onWebAppUrlChanged(it?.toString().orEmpty()) }
-        binding.sheetNameInput.doAfterTextChanged { viewModel.onSheetNameChanged(it?.toString().orEmpty()) }
-
-        collectOnStarted(viewModel.uiState) { state ->
-            binding.sheetUrlInput.syncFromState(state.sheetUrlDraft)
-            binding.webAppUrlInput.syncFromState(state.webAppUrlDraft)
-            binding.sheetNameInput.syncFromState(state.sheetNameDraft)
-            render(state)
-        }
+        collectOnStarted(viewModel.uiState) { state -> render(state) }
 
         collectOnStarted(viewModel.effects) { effect ->
             when (effect) {
@@ -88,10 +84,24 @@ class ChatFragment : Fragment() {
                 ).show()
             }
         }
+
+        collectOnStarted(configViewModel.uiState) { state ->
+            binding.sheetUrlInput.syncFromState(state.sheetUrl)
+            binding.webAppUrlInput.syncFromState(state.webAppUrl)
+            binding.sheetNameInput.syncFromState(state.sheetName)
+        }
+
+        collectOnStarted(configViewModel.effects) { effect ->
+            when (effect) {
+                is ChatConfigEffect.ShowError ->
+                    Toast.makeText(requireContext(), effect.resId, Toast.LENGTH_LONG).show()
+                is ChatConfigEffect.ShowSaved -> Unit
+            }
+        }
     }
 
     private fun render(state: ChatUiState) {
-        val configured = state.session.isChatConfigured
+        val configured = state.chatConfig.isConfigured
         binding.connectPanel.isVisible = !configured
         binding.chatPanel.isVisible = configured
 
@@ -101,25 +111,20 @@ class ChatFragment : Fragment() {
         val hasMessages = state.messages.isNotEmpty()
         binding.emptyChatText.isVisible = configured && !hasMessages
         binding.messagesList.isVisible = hasMessages
+        binding.loadMoreButton.isVisible = configured && state.canLoadMore
 
         adapter.submitList(state.messages) {
-            if (state.messages.isNotEmpty()) {
-                binding.messagesList.scrollToPosition(state.messages.lastIndex)
-            }
+            scrollToBottomIfNearEnd(state.messages.size)
         }
 
         syncMessageInput(state.inputText)
         renderTypeToggle(state.inputType)
 
-        state.error?.let { msg ->
-            binding.errorText.isVisible = configured
-            binding.errorText.text = msg
-        } ?: run {
-            binding.errorText.isVisible = false
-        }
+        binding.errorText.isVisible = configured && state.error != null
+        binding.errorText.text = state.error?.resolve(requireContext()).orEmpty()
     }
 
-    private fun renderTypeToggle(inputType: String) {
+    private fun renderTypeToggle(inputType: MessageType) {
         val isImportant = inputType == MessageType.IMPORTANT
         binding.btnTypeToggle.text = if (isImportant) "★" else "☆"
         binding.btnTypeToggle.setTextColor(
@@ -207,17 +212,45 @@ class ChatFragment : Fragment() {
             .show()
     }
 
+    /**
+     * Скроллит к последнему сообщению только если пользователь находится
+     * в нижней зоне списка (не прокрутил историю вверх).
+     */
+    private fun scrollToBottomIfNearEnd(itemCount: Int) {
+        if (itemCount == 0) return
+        val lm = binding.messagesList.layoutManager as? LinearLayoutManager ?: return
+        val lastVisible = lm.findLastVisibleItemPosition()
+        if (lastVisible >= itemCount - SCROLL_THRESHOLD) {
+            binding.messagesList.scrollToPosition(itemCount - 1)
+        }
+    }
+
     private fun connectChat() {
-        val state = viewModel.uiState.value
-        viewModel.saveChatConfig(
-            sheetUrl = state.sheetUrlDraft,
-            webAppUrl = state.webAppUrlDraft,
-            sheetName = state.sheetNameDraft.ifBlank { getString(R.string.default_sheet_name) },
+        configViewModel.save(
+            sheetUrl = binding.sheetUrlInput.text?.toString().orEmpty(),
+            webAppUrl = binding.webAppUrlInput.text?.toString().orEmpty(),
+            sheetName = binding.sheetNameInput.text?.toString()
+                .orEmpty().ifBlank { getString(R.string.default_sheet_name) },
         )
+    }
+
+    override fun onStart() {
+        super.onStart()
+        viewModel.setPollingActive(true)
+    }
+
+    override fun onStop() {
+        viewModel.setPollingActive(false)
+        super.onStop()
     }
 
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    companion object {
+        /** Количество позиций от конца списка, в пределах которых автоскролл активен. */
+        private const val SCROLL_THRESHOLD = 3
     }
 }

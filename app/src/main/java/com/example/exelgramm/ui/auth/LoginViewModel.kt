@@ -52,15 +52,24 @@ class LoginViewModel @Inject constructor(
             sendError(R.string.error_fields_required)
             return
         }
+        if (password.length < 4) {
+            sendError(R.string.error_password_too_short)
+            return
+        }
 
         viewModelScope.launch {
-            // Заглушка до Google Sign-In: любой логин и пароль (≥4 символа).
-            if (password.length < 4) {
-                _effects.send(LoginEffect.ShowError(UiText.StringResource(R.string.error_password_too_short)))
-                return@launch
+            val state = authRepository.authState.first()
+            val success = if (!state.isRegistered) {
+                authRepository.register(trimmedUsername, password)
+                true
+            } else {
+                authRepository.login(trimmedUsername, password)
             }
-            authRepository.register(trimmedUsername, password)
-            _effects.send(LoginEffect.NavigateToMain)
+            if (success) {
+                _effects.send(LoginEffect.NavigateToMain)
+            } else {
+                _effects.send(LoginEffect.ShowError(UiText.StringResource(R.string.error_invalid_credentials)))
+            }
         }
     }
 

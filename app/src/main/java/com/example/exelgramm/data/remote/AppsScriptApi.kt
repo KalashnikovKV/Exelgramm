@@ -1,11 +1,12 @@
 package com.example.exelgramm.data.remote
 
 import com.example.exelgramm.core.AppError
+import com.example.exelgramm.core.runSuspendCatchingCancellable
 import com.example.exelgramm.domain.model.Message
-import com.google.gson.Gson
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
+import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -15,21 +16,22 @@ import okhttp3.RequestBody.Companion.toRequestBody
 @Singleton
 class AppsScriptApi @Inject constructor(
     @param:Named("noRedirect") private val httpClient: OkHttpClient,
-    private val gson: Gson,
-) {
+    private val json: Json,
+) : MessagesApiClient {
 
-    fun fetchMessages(
+    override suspend fun fetchMessages(
         webAppUrl: String,
         spreadsheetId: String,
         sheetName: String,
-    ): Result<List<Message>> = runCatching {
-        val body = executeGetChain(webAppUrl, spreadsheetId, sheetName)
-        val response = parseJson(body, MessagesResponse::class.java)
+        since: String?,
+    ): Result<List<Message>> = runSuspendCatchingCancellable {
+        val body = executeGetChain(webAppUrl, spreadsheetId, sheetName, since)
+        val response = json.decodeApiResponse<MessagesResponse>(body)
         if (!response.ok) throw AppError.ApiError(response.error ?: "Unknown error")
         response.messages.orEmpty().map { it.toDomain() }
     }
 
-    fun sendMessage(
+    override suspend fun sendMessage(
         webAppUrl: String,
         spreadsheetId: String,
         sheetName: String,
@@ -43,12 +45,12 @@ class AppsScriptApi @Inject constructor(
             timestamp = message.timestamp,
             author = message.author,
             text = message.text,
-            type = message.type,
+            type = message.type.apiValue,
         ),
         errorMessage = "Send failed",
     )
 
-    fun updateMessage(
+    override suspend fun updateMessage(
         webAppUrl: String,
         spreadsheetId: String,
         sheetName: String,
@@ -65,7 +67,7 @@ class AppsScriptApi @Inject constructor(
         errorMessage = "Update failed",
     )
 
-    fun deleteMessage(
+    override suspend fun deleteMessage(
         webAppUrl: String,
         spreadsheetId: String,
         sheetName: String,
@@ -80,27 +82,35 @@ class AppsScriptApi @Inject constructor(
         errorMessage = "Delete failed",
     )
 
-    private fun postAction(webAppUrl: String, payload: Any, errorMessage: String): Result<Unit> =
-        runCatching {
-            val body = executePost(webAppUrl, gson.toJson(payload))
-            val response = parseJson(body, SimpleResponse::class.java)
+    private suspend fun postAction(webAppUrl: String, payload: Any, errorMessage: String): Result<Unit> =
+        runSuspendCatchingCancellable {
+            val jsonBody = when (payload) {
+                is PostMessageRequest -> json.encodeToString(PostMessageRequest.serializer(), payload)
+                is UpdateMessageRequest -> json.encodeToString(UpdateMessageRequest.serializer(), payload)
+                is DeleteMessageRequest -> json.encodeToString(DeleteMessageRequest.serializer(), payload)
+                else -> error("Unsupported payload type")
+            }
+            val body = executePost(webAppUrl, jsonBody)
+            val response = json.decodeApiResponse<SimpleResponse>(body)
             if (!response.ok) throw AppError.ApiError(response.error ?: errorMessage)
         }
 
-    private fun executeGetChain(
+    private suspend fun executeGetChain(
         webAppUrl: String,
         spreadsheetId: String,
         sheetName: String,
+        since: String?,
     ): String {
-        val start = SheetLinkParser.canonicalExecUrl(webAppUrl).toHttpUrl().newBuilder()
+        val builder = SheetLinkParser.canonicalExecUrl(webAppUrl).toHttpUrl().newBuilder()
             .addQueryParameter("id", spreadsheetId)
             .addQueryParameter("sheet", sheetName)
-            .build()
-            .toString()
-        return followGetRedirects(start)
+        if (!since.isNullOrBlank()) {
+            builder.addQueryParameter("since", since)
+        }
+        return followGetRedirects(builder.build().toString())
     }
 
-    private fun followGetRedirects(startUrl: String): String {
+    private suspend fun followGetRedirects(startUrl: String): String {
         var current = startUrl
         repeat(MAX_HOPS) {
             val request = Request.Builder()
@@ -109,57 +119,43 @@ class AppsScriptApi @Inject constructor(
                 .header("User-Agent", CHROME_USER_AGENT)
                 .header("Accept", "application/json,text/plain,*/*")
                 .build()
-            httpClient.newCall(request).execute().use { response ->
-                val body = response.body?.string().orEmpty()
-                if (looksLikeJson(body)) return body
+            httpClient.newCall(request).await().use { response ->
                 when {
+                    response.isJson() -> return response.body?.string().orEmpty()
                     response.code in 300..399 -> {
                         current = response.header("Location")
                             ?: throw AppError.HttpError(response.code, "No Location header")
                         return@repeat
                     }
-                    response.isSuccessful -> return body
-                    else -> throw AppError.HttpError(response.code, body.take(200))
+                    response.isSuccessful -> return response.body?.string().orEmpty()
+                    else -> throw AppError.HttpError(response.code, response.body?.string().orEmpty().take(200))
                 }
             }
         }
         throw AppError.TooManyRedirects
     }
 
-    /**
-     * POST на /exec часто отвечает 302: скрипт уже выполнен, echo-URL отдаёт 405 на POST.
-     * Не следуем редиректу POST-ом — считаем успехом 302 или JSON в теле.
-     */
-    private fun executePost(webAppUrl: String, json: String): String {
+    private suspend fun executePost(webAppUrl: String, jsonBody: String): String {
         val url = SheetLinkParser.canonicalExecUrl(webAppUrl)
         val request = Request.Builder()
             .url(url)
-            .post(json.toRequestBody(JSON_MEDIA))
+            .post(jsonBody.toRequestBody(JSON_MEDIA))
             .header("User-Agent", CHROME_USER_AGENT)
             .header("Accept", "application/json")
             .header("Content-Type", "application/json; charset=utf-8")
             .build()
-        httpClient.newCall(request).execute().use { response ->
-            val body = response.body?.string().orEmpty()
-            if (looksLikeJson(body)) return body
+        httpClient.newCall(request).await().use { response ->
             when {
+                response.isJson() -> return response.body?.string().orEmpty()
                 response.code in 300..399 -> return """{"ok":true}"""
-                response.isSuccessful -> return body.ifBlank { """{"ok":true}""" }
-                else -> throw AppError.HttpError(response.code, body.take(200))
+                response.isSuccessful -> return response.body?.string().orEmpty().ifBlank { """{"ok":true}""" }
+                else -> throw AppError.HttpError(response.code, response.body?.string().orEmpty().take(200))
             }
         }
     }
 
-    private fun looksLikeJson(body: String): Boolean {
-        val t = body.trim()
-        return t.startsWith("{") && t.contains("\"ok\"")
-    }
-
-    private fun <T> parseJson(body: String, type: Class<T>): T {
-        val trimmed = body.trim()
-        if (trimmed.startsWith("<")) throw AppError.HtmlResponse
-        return gson.fromJson(trimmed, type)
-    }
+    private fun okhttp3.Response.isJson(): Boolean =
+        header("Content-Type").orEmpty().contains("application/json", ignoreCase = true)
 
     companion object {
         private val JSON_MEDIA = "application/json; charset=utf-8".toMediaType()

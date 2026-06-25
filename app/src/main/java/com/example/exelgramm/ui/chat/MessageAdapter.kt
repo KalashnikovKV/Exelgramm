@@ -43,6 +43,8 @@ class MessageAdapter(
         private val author: TextView = itemView.findViewById(R.id.messageAuthor)
         private val text: TextView = itemView.findViewById(R.id.messageText)
         private val time: TextView = itemView.findViewById(R.id.messageTime)
+        private val pendingStatus: TextView? = itemView.findViewById(R.id.messagePendingStatus)
+        private val errorStatus: TextView? = itemView.findViewById(R.id.messageErrorStatus)
 
         fun bind(
             item: MessageUiItem,
@@ -65,7 +67,17 @@ class MessageAdapter(
                     typeBadge.isVisible = item.messageType == MessageType.IMPORTANT
                     author.visibility = View.GONE
                     text.text = item.text
+                    when {
+                        item.hasError -> {
+                            text.alpha = 1f
+                            itemView.background?.mutate()?.alpha = 255
+                        }
+                        item.isPending -> text.alpha = 0.7f
+                        else -> text.alpha = 1f
+                    }
                     time.text = item.time
+                    pendingStatus?.isVisible = item.isPending && !item.hasError
+                    errorStatus?.isVisible = item.hasError
                 }
             }
         }

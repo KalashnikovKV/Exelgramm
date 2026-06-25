@@ -41,7 +41,7 @@ class ChatConfigViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val s = store.session.first()
+            val s = store.chatConfig.first()
             _uiState.update {
                 it.copy(sheetUrl = s.sheetUrl, webAppUrl = s.webAppUrl, sheetName = s.sheetName)
             }

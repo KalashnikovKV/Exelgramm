@@ -17,14 +17,14 @@ data class MessageEntity(
     val text: String,
     val spreadsheetId: String,
     val sheetName: String,
-    val type: String = MessageType.TEXT,
+    val type: String = MessageType.TEXT.apiValue,
 ) {
     fun toDomain(): Message = Message(
         id = id,
         timestamp = timestamp,
         author = author,
         text = text,
-        type = type,
+        type = MessageType.fromString(type),
     )
 }
 
@@ -35,5 +35,5 @@ fun Message.toEntity(spreadsheetId: String, sheetName: String) = MessageEntity(
     text = text,
     spreadsheetId = spreadsheetId,
     sheetName = sheetName,
-    type = type,
+    type = type.apiValue,
 )

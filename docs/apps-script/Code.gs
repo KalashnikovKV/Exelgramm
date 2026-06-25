@@ -18,11 +18,12 @@ function doGet(e) {
   try {
     var spreadsheetId = e.parameter.id;
     var sheetName = e.parameter.sheet;
+    var since = e.parameter.since || '';
     if (!spreadsheetId) {
       return json_({ ok: false, error: 'Missing parameter: id' });
     }
     var sheet = getSheet_(spreadsheetId, sheetName);
-    var messages = readMessages_(sheet);
+    var messages = readMessages_(sheet, since);
     return json_({ ok: true, messages: messages });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -132,7 +133,7 @@ function ensureHeaders_(sheet) {
   }
 }
 
-function readMessages_(sheet) {
+function readMessages_(sheet, since) {
   ensureHeaders_(sheet);
   var data = sheet.getDataRange().getValues();
   if (data.length < 2) return [];
@@ -157,9 +158,11 @@ function readMessages_(sheet) {
     var row = data[i];
     var text = cell_(row, textCol);
     if (!text) continue;
+    var timestamp = cell_(row, timeCol) || '';
+    if (since && timestamp && timestamp <= since) continue;
     out.push({
       id: cell_(row, idCol) || 'row_' + (i + 1),
-      timestamp: cell_(row, timeCol) || '',
+      timestamp: timestamp,
       author: cell_(row, authorCol) || 'unknown',
       text: text,
       type: typeCol >= 0 ? (cell_(row, typeCol) || 'text') : 'text'

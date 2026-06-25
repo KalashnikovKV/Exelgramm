@@ -1,121 +1,164 @@
 package com.example.exelgramm.data.repository
 
 import com.example.exelgramm.core.AppError
-import com.example.exelgramm.data.local.UserSession
+import com.example.exelgramm.data.local.ChatConfig
 import com.example.exelgramm.data.local.db.MessageDao
 import com.example.exelgramm.data.local.db.toEntity
-import com.example.exelgramm.data.remote.AppsScriptApi
-import com.example.exelgramm.data.remote.CsvSheetReader
+import com.example.exelgramm.data.remote.CsvMessagesClient
+import com.example.exelgramm.data.remote.MessagesApiClient
 import com.example.exelgramm.domain.model.Message
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
-class ChatRepository @Inject constructor(
-    private val api: AppsScriptApi,
-    private val csvReader: CsvSheetReader,
+interface ChatRepository {
+    suspend fun loadMessages(
+        config: ChatConfig,
+        options: MessageSyncOptions = MessageSyncOptions(),
+    ): Result<List<Message>>
+
+    suspend fun getCachedMessages(config: ChatConfig): Result<List<Message>>
+    suspend fun getMessagesByAuthor(config: ChatConfig, author: String): Result<List<Message>>
+    suspend fun getMessageById(config: ChatConfig, messageId: String): Result<Message?>
+    suspend fun sendMessage(config: ChatConfig, message: Message): Result<Message>
+    suspend fun updateMessage(config: ChatConfig, messageId: String, text: String): Result<Unit>
+    suspend fun deleteMessage(config: ChatConfig, messageId: String): Result<Unit>
+}
+
+class DefaultChatRepository @Inject constructor(
+    private val api: MessagesApiClient,
+    private val csvReader: CsvMessagesClient,
     private val messageDao: MessageDao,
-) {
+) : ChatRepository {
 
-    /**
-     * Порядок загрузки:
-     * 1. Apps Script API
-     * 2. CSV (прямое чтение таблицы) — если API недоступен
-     * 3. Room-кэш — если оба источника недоступны (offline)
-     */
-    suspend fun loadMessages(session: UserSession): Result<List<Message>> = withContext(Dispatchers.IO) {
-        if (!session.isChatConfigured) {
-            return@withContext Result.failure(AppError.ChatNotConfigured)
-        }
-
-        val apiResult = api.fetchMessages(
-            webAppUrl = session.webAppUrl,
-            spreadsheetId = session.spreadsheetId,
-            sheetName = session.sheetName,
+    override suspend fun loadMessages(
+        config: ChatConfig,
+        options: MessageSyncOptions,
+    ): Result<List<Message>> = withConfiguredConfig(config) {
+        api.fetchMessages(
+            webAppUrl = config.webAppUrl,
+            spreadsheetId = config.spreadsheetId,
+            sheetName = config.sheetName,
+            since = options.since,
+        ).fold(
+            onSuccess = { messages -> return@withConfiguredConfig persistAndReturn(config, messages, options) },
+            onFailure = {},
         )
-        if (apiResult.isSuccess) {
-            val messages = apiResult.getOrThrow().sortedBy { it.timestamp }
-            messageDao.replaceForSheet(
-                session.spreadsheetId,
-                session.sheetName,
-                messages.map { it.toEntity(session.spreadsheetId, session.sheetName) },
+
+        if (options.since == null) {
+            csvReader.fetch(config.spreadsheetId, config.sheetName).fold(
+                onSuccess = { messages ->
+                    return@withConfiguredConfig persistAndReturn(
+                        config,
+                        messages,
+                        MessageSyncOptions(fullRefresh = true),
+                    )
+                },
+                onFailure = {},
             )
-            return@withContext Result.success(messages)
         }
 
-        val csvResult = csvReader.fetch(session.spreadsheetId, session.sheetName)
-        if (csvResult.isSuccess) {
-            val messages = csvResult.getOrThrow().sortedBy { it.timestamp }
-            messageDao.replaceForSheet(
-                session.spreadsheetId,
-                session.sheetName,
-                messages.map { it.toEntity(session.spreadsheetId, session.sheetName) },
-            )
-            return@withContext Result.success(messages)
-        }
+        getCachedMessages(config).fold(
+            onSuccess = { cached ->
+                if (cached.isNotEmpty()) return@withConfiguredConfig Result.success(cached)
+            },
+            onFailure = { return@withConfiguredConfig Result.failure(it) },
+        )
 
-        // Оба сетевых источника недоступны — отдаём кэш
-        val cached = messageDao.getAll(session.spreadsheetId, session.sheetName)
-        if (cached.isNotEmpty()) {
-            return@withContext Result.success(cached.map { it.toDomain() })
-        }
-
-        // Нет ни сети, ни кэша — возвращаем ошибку от API
-        apiResult.map { it.sortedBy { m -> m.timestamp } }
+        Result.failure(AppError.NoInternet)
     }
 
-    suspend fun sendMessage(session: UserSession, message: Message): Result<Message> =
-        withContext(Dispatchers.IO) {
-            if (!session.isChatConfigured) {
-                return@withContext Result.failure(AppError.ChatNotConfigured)
-            }
+    override suspend fun getCachedMessages(config: ChatConfig): Result<List<Message>> =
+        withConfiguredConfig(config) {
+            val cached = messageDao.getAll(config.spreadsheetId, config.sheetName)
+            Result.success(cached.map { it.toDomain() })
+        }
+
+    override suspend fun getMessagesByAuthor(config: ChatConfig, author: String): Result<List<Message>> =
+        getCachedMessages(config).map { messages ->
+            messages.filter { it.author.equals(author, ignoreCase = true) }
+                .sortedBy { it.timestamp }
+        }
+
+    override suspend fun getMessageById(config: ChatConfig, messageId: String): Result<Message?> =
+        withConfiguredConfig(config) {
+            if (messageId.isBlank()) return@withConfiguredConfig Result.success(null)
+            val entity = messageDao.getById(messageId, config.spreadsheetId, config.sheetName)
+            Result.success(entity?.toDomain())
+        }
+
+    override suspend fun sendMessage(config: ChatConfig, message: Message): Result<Message> =
+        withConfiguredConfig(config) {
             api.sendMessage(
-                webAppUrl = session.webAppUrl,
-                spreadsheetId = session.spreadsheetId,
-                sheetName = session.sheetName,
+                webAppUrl = config.webAppUrl,
+                spreadsheetId = config.spreadsheetId,
+                sheetName = config.sheetName,
                 message = message,
             ).map { message }
         }
 
-    suspend fun updateMessage(session: UserSession, messageId: String, text: String): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            if (!session.isChatConfigured) {
-                return@withContext Result.failure(AppError.ChatNotConfigured)
-            }
+    override suspend fun updateMessage(config: ChatConfig, messageId: String, text: String): Result<Unit> =
+        withConfiguredConfig(config) {
             api.updateMessage(
-                webAppUrl = session.webAppUrl,
-                spreadsheetId = session.spreadsheetId,
-                sheetName = session.sheetName,
+                webAppUrl = config.webAppUrl,
+                spreadsheetId = config.spreadsheetId,
+                sheetName = config.sheetName,
                 messageId = messageId,
                 text = text,
-            ).onSuccess {
-                messageDao.updateText(
-                    id = messageId,
-                    spreadsheetId = session.spreadsheetId,
-                    sheetName = session.sheetName,
-                    text = text,
-                )
+            ).also { result ->
+                result.onSuccess {
+                    messageDao.updateText(
+                        id = messageId,
+                        spreadsheetId = config.spreadsheetId,
+                        sheetName = config.sheetName,
+                        text = text,
+                    )
+                }
             }
         }
 
-    suspend fun deleteMessage(session: UserSession, messageId: String): Result<Unit> =
-        withContext(Dispatchers.IO) {
-            if (!session.isChatConfigured) {
-                return@withContext Result.failure(AppError.ChatNotConfigured)
-            }
+    override suspend fun deleteMessage(config: ChatConfig, messageId: String): Result<Unit> =
+        withConfiguredConfig(config) {
             api.deleteMessage(
-                webAppUrl = session.webAppUrl,
-                spreadsheetId = session.spreadsheetId,
-                sheetName = session.sheetName,
+                webAppUrl = config.webAppUrl,
+                spreadsheetId = config.spreadsheetId,
+                sheetName = config.sheetName,
                 messageId = messageId,
-            ).onSuccess {
-                messageDao.deleteById(
-                    id = messageId,
-                    spreadsheetId = session.spreadsheetId,
-                    sheetName = session.sheetName,
-                )
+            ).also { result ->
+                result.onSuccess {
+                    messageDao.deleteById(
+                        id = messageId,
+                        spreadsheetId = config.spreadsheetId,
+                        sheetName = config.sheetName,
+                    )
+                }
             }
         }
+
+    private suspend fun persistAndReturn(
+        config: ChatConfig,
+        messages: List<Message>,
+        options: MessageSyncOptions,
+    ): Result<List<Message>> {
+        val sorted = messages.sortedBy { it.timestamp }
+        val entities = sorted.map { it.toEntity(config.spreadsheetId, config.sheetName) }
+        if (options.fullRefresh) {
+            messageDao.replaceForSheet(config.spreadsheetId, config.sheetName, entities)
+            return Result.success(sorted)
+        }
+        if (entities.isNotEmpty()) {
+            messageDao.upsertAll(entities)
+        }
+        val merged = messageDao.getAll(config.spreadsheetId, config.sheetName).map { it.toDomain() }
+        return Result.success(merged)
+    }
+
+    private suspend fun <T> withConfiguredConfig(
+        config: ChatConfig,
+        block: suspend () -> Result<T>,
+    ): Result<T> = withContext(Dispatchers.IO) {
+        if (!config.isConfigured) Result.failure(AppError.ChatNotConfigured)
+        else block()
+    }
 }

@@ -18,11 +18,11 @@ class ProfileViewModel @Inject constructor(
     private val appPrefs: AppPrefsStore,
 ) : ViewModel() {
 
-    val username = store.session
+    val username = store.authSession
         .map { it.username }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "")
 
-    val createdAt = store.session
+    val createdAt = store.authSession
         .map { it.createdAt }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 

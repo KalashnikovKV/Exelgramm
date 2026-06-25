@@ -91,6 +91,18 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent">
 
+                <TextView
+                    android:id="@+id/loadMoreButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="top"
+                    android:background="?attr/selectableItemBackground"
+                    android:gravity="center"
+                    android:padding="12dp"
+                    android:text="@string/chat_load_more"
+                    android:textColor="@color/tg_text_secondary"
+                    android:visibility="gone" />
+
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/messagesList"
                     android:layout_width="match_parent"

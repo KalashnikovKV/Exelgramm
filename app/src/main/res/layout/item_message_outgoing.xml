@@ -45,5 +45,29 @@
             android:layout_marginTop="4dp"
             android:textColor="@color/tg_text_secondary"
             android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/messagePendingStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="2dp"
+            android:text="@string/chat_message_pending"
+            android:textColor="@color/tg_text_secondary"
+            android:textSize="11sp"
+            android:textStyle="italic"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/messageErrorStatus"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="2dp"
+            android:text="@string/chat_message_failed"
+            android:textColor="@color/tg_error"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
     </LinearLayout>
 </FrameLayout>

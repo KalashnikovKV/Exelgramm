@@ -3,8 +3,7 @@ package com.example.exelgramm.ui.participants
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exelgramm.data.local.SessionStore
-import com.example.exelgramm.data.local.db.MessageDao
-import com.example.exelgramm.data.repository.ChatRepository
+import com.example.exelgramm.data.repository.LoadParticipantsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,8 +23,7 @@ data class ParticipantItem(
 @HiltViewModel
 class ParticipantsViewModel @Inject constructor(
     private val sessionStore: SessionStore,
-    private val messageDao: MessageDao,
-    private val chatRepository: ChatRepository,
+    private val loadParticipantsUseCase: LoadParticipantsUseCase,
 ) : ViewModel() {
 
     private val _participants = MutableStateFlow<List<ParticipantItem>>(emptyList())
@@ -43,8 +41,8 @@ class ParticipantsViewModel @Inject constructor(
      */
     fun refresh(syncFromRemote: Boolean = false, showLoading: Boolean = false) {
         viewModelScope.launch {
-            val session = sessionStore.session.first()
-            if (!session.isChatConfigured) {
+            val config = sessionStore.chatConfig.first()
+            if (!config.isConfigured) {
                 _isConfigured.value = false
                 _participants.value = emptyList()
                 _isLoading.value = false
@@ -52,11 +50,22 @@ class ParticipantsViewModel @Inject constructor(
             }
             _isConfigured.value = true
             if (showLoading) _isLoading.value = true
-            if (syncFromRemote) {
-                chatRepository.loadMessages(session)
-            }
-            val messages = messageDao.getAll(session.spreadsheetId, session.sheetName)
-            _participants.value = messages.toParticipantItems()
+            loadParticipantsUseCase(config, syncFromRemote).fold(
+                onSuccess = { summaries ->
+                    _participants.value = summaries.map { summary ->
+                        ParticipantItem(
+                            author = summary.author,
+                            totalMessages = summary.totalMessages,
+                            textMessages = summary.textMessages,
+                            importantMessages = summary.importantMessages,
+                            lastMessageTime = summary.lastMessageTime,
+                        )
+                    }
+                },
+                onFailure = {
+                    _participants.value = emptyList()
+                },
+            )
             _isLoading.value = false
         }
     }

@@ -1,7 +1,7 @@
 package com.example.exelgramm.core
 
 import android.os.NetworkOnMainThreadException
-import com.google.gson.JsonSyntaxException
+import kotlinx.serialization.SerializationException
 import java.net.UnknownHostException
 
 object ErrorTexts {
@@ -32,7 +32,7 @@ object ErrorTexts {
                 is NetworkOnMainThreadException ->
                     return "Сетевая ошибка приложения. Обновите сборку."
 
-                is JsonSyntaxException ->
+                is SerializationException ->
                     return "Неверный ответ сервера (JSON). Проверьте URL (.../exec)."
             }
         }

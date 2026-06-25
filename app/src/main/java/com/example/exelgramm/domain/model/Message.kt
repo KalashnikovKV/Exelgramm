@@ -5,13 +5,18 @@ data class Message(
     val timestamp: String,
     val author: String,
     val text: String,
-    val type: String = MessageType.TEXT,
+    val type: MessageType = MessageType.TEXT,
 ) {
     fun isMine(currentAuthor: String): Boolean =
         author.equals(currentAuthor, ignoreCase = true)
 }
 
-object MessageType {
-    const val TEXT = "text"
-    const val IMPORTANT = "important"
+enum class MessageType(val apiValue: String) {
+    TEXT("text"),
+    IMPORTANT("important");
+
+    companion object {
+        fun fromString(value: String): MessageType =
+            entries.firstOrNull { it.apiValue == value } ?: TEXT
+    }
 }

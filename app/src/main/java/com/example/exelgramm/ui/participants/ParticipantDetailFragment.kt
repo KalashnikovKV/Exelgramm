@@ -19,10 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.exelgramm.R
-import com.example.exelgramm.core.TimeFormats
-import com.example.exelgramm.data.local.db.MessageEntity
 import com.example.exelgramm.databinding.FragmentParticipantDetailBinding
-import com.example.exelgramm.domain.model.MessageType
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -47,10 +44,10 @@ class ParticipantDetailFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        messagesAdapter = ParticipantMessagesAdapter { entity ->
+        messagesAdapter = ParticipantMessagesAdapter { item ->
             findNavController().navigate(
                 R.id.action_participant_detail_to_message_detail,
-                bundleOf("messageId" to entity.id),
+                bundleOf("messageId" to item.id),
             )
         }
         binding.messagesList.layoutManager = LinearLayoutManager(requireContext())
@@ -94,8 +91,8 @@ class ParticipantDetailFragment : Fragment() {
 }
 
 class ParticipantMessagesAdapter(
-    private val onMessageClick: (MessageEntity) -> Unit,
-) : ListAdapter<MessageEntity, ParticipantMessagesAdapter.Holder>(Diff) {
+    private val onMessageClick: (ParticipantMessageItem) -> Unit,
+) : ListAdapter<ParticipantMessageItem, ParticipantMessagesAdapter.Holder>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val view = LayoutInflater.from(parent.context)
@@ -109,28 +106,28 @@ class ParticipantMessagesAdapter(
 
     class Holder(
         itemView: View,
-        private val onMessageClick: (MessageEntity) -> Unit,
+        private val onMessageClick: (ParticipantMessageItem) -> Unit,
     ) : RecyclerView.ViewHolder(itemView) {
         private val typeBadge: TextView = itemView.findViewById(R.id.msgTypeBadge)
         private val msgText: TextView = itemView.findViewById(R.id.msgText)
         private val msgTime: TextView = itemView.findViewById(R.id.msgTime)
 
-        fun bind(entity: MessageEntity) {
-            itemView.setOnClickListener { onMessageClick(entity) }
-            typeBadge.text = if (entity.type == MessageType.IMPORTANT) "★" else "○"
+        fun bind(item: ParticipantMessageItem) {
+            itemView.setOnClickListener { onMessageClick(item) }
+            typeBadge.text = if (item.isImportant) "★" else "○"
             typeBadge.setTextColor(
                 itemView.context.getColor(
-                    if (entity.type == MessageType.IMPORTANT) R.color.msg_type_important_color
+                    if (item.isImportant) R.color.msg_type_important_color
                     else R.color.tg_text_secondary,
                 ),
             )
-            msgText.text = entity.text
-            msgTime.text = TimeFormats.formatFullDateTime(entity.timestamp)
+            msgText.text = item.text
+            msgTime.text = item.time
         }
     }
 
-    private object Diff : DiffUtil.ItemCallback<MessageEntity>() {
-        override fun areItemsTheSame(a: MessageEntity, b: MessageEntity) = a.id == b.id
-        override fun areContentsTheSame(a: MessageEntity, b: MessageEntity) = a == b
+    private object Diff : DiffUtil.ItemCallback<ParticipantMessageItem>() {
+        override fun areItemsTheSame(a: ParticipantMessageItem, b: ParticipantMessageItem) = a.id == b.id
+        override fun areContentsTheSame(a: ParticipantMessageItem, b: ParticipantMessageItem) = a == b
     }
 }

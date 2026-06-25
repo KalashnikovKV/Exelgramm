@@ -27,9 +27,16 @@ object PasswordUtils {
         return key.encoded.joinToString("") { "%02x".format(it) }
     }
 
-    /** Проверяет пароль против PBKDF2-хэша. */
-    fun verify(password: String, hash: String, salt: String): Boolean =
-        hash(password, salt) == hash
+    /**
+     * Проверяет пароль против PBKDF2-хэша.
+     * Использует [MessageDigest.isEqual] для constant-time сравнения,
+     * чтобы исключить timing side-channel через короткозамыкание `==`.
+     */
+    fun verify(password: String, hash: String, salt: String): Boolean {
+        val computed = hash(password, salt).toByteArray(Charsets.UTF_8)
+        val expected = hash.toByteArray(Charsets.UTF_8)
+        return MessageDigest.isEqual(computed, expected)
+    }
 
     /**
      * Legacy SHA-256 хэш без соли (использовался до PBKDF2).

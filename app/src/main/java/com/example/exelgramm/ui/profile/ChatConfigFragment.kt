@@ -6,7 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
 import androidx.fragment.app.Fragment
-import androidx.fragment.app.viewModels
+import androidx.fragment.app.activityViewModels
 import com.example.exelgramm.R
 import com.example.exelgramm.databinding.FragmentChatConfigBinding
 import com.example.exelgramm.ui.common.collectOnStarted
@@ -19,7 +19,7 @@ class ChatConfigFragment : Fragment() {
     private var _binding: FragmentChatConfigBinding? = null
     private val binding get() = _binding!!
 
-    private val viewModel: ChatConfigViewModel by viewModels()
+    private val viewModel: ChatConfigViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,

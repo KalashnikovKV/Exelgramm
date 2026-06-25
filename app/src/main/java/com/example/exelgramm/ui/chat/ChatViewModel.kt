@@ -3,38 +3,50 @@ package com.example.exelgramm.ui.chat
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.exelgramm.core.CHAT_PAGE_SIZE
 import com.example.exelgramm.core.ErrorTexts
 import com.example.exelgramm.core.TimeFormats
-import com.example.exelgramm.data.local.SessionStore
-import com.example.exelgramm.data.local.UserSession
+import com.example.exelgramm.core.UiText
+import com.example.exelgramm.data.local.AuthSession
+import com.example.exelgramm.data.local.ChatConfig
+import com.example.exelgramm.data.local.SessionProvider
 import com.example.exelgramm.data.repository.ChatRepository
-import com.example.exelgramm.data.repository.SaveChatConfigUseCase
+import com.example.exelgramm.data.repository.DeleteMessageUseCase
+import com.example.exelgramm.data.repository.MessageSyncOptions
+import com.example.exelgramm.data.repository.SendMessageUseCase
+import com.example.exelgramm.data.repository.UpdateMessageUseCase
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
+import com.example.exelgramm.sync.ChatBackgroundSync
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 data class ChatUiState(
-    val session: UserSession = UserSession(),
+    val auth: AuthSession = AuthSession(),
+    val chatConfig: ChatConfig = ChatConfig(),
     val messages: List<MessageUiItem> = emptyList(),
     val isLoading: Boolean = false,
-    val error: String? = null,
+    val isLoadingMore: Boolean = false,
+    val canLoadMore: Boolean = false,
+    val error: UiText? = null,
     val inputText: String = "",
-    val inputType: String = MessageType.TEXT,
-    val sheetUrlDraft: String = "",
-    val webAppUrlDraft: String = "",
-    val sheetNameDraft: String = "",
+    val inputType: MessageType = MessageType.TEXT,
 )
 
 sealed interface ChatEffect {
@@ -43,9 +55,12 @@ sealed interface ChatEffect {
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
-    private val sessionStore: SessionStore,
+    private val sessionProvider: SessionProvider,
     private val repository: ChatRepository,
-    private val saveChatConfigUseCase: SaveChatConfigUseCase,
+    private val sendMessageUseCase: SendMessageUseCase,
+    private val updateMessageUseCase: UpdateMessageUseCase,
+    private val deleteMessageUseCase: DeleteMessageUseCase,
+    private val chatSyncScheduler: ChatBackgroundSync,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ChatUiState())
@@ -54,255 +69,364 @@ class ChatViewModel @Inject constructor(
     private val _effects = Channel<ChatEffect>(Channel.BUFFERED)
     val effects = _effects.receiveAsFlow()
 
-    private var rawMessages: List<Message> = emptyList()
-    private var pollJob: Job? = null
-    /** Отправлены локально, но ещё не пришли с сервера. */
-    private val pendingSends = mutableSetOf<String>()
-    /** Удалены локально, ждём подтверждения с сервера. */
-    private val pendingDeletes = mutableSetOf<String>()
-    /** Отредактированы локально, ждём подтверждения с сервера. */
-    private val pendingEdits = mutableMapOf<String, String>()
+    private val stateLock = Mutex()
+    private val internalState = MutableStateFlow(ChatInternalState())
+    private val pollingActive = MutableStateFlow(false)
+    private val fastPollUntil = MutableStateFlow(0L)
+    private var displayLimit = CHAT_PAGE_SIZE
 
     init {
         viewModelScope.launch {
-            sessionStore.session.collect { session ->
-                val previousDisplayName = _uiState.value.session.displayName
-                _uiState.update { state ->
-                    state.copy(
-                        session = session,
-                        sheetUrlDraft = if (state.sheetUrlDraft.isEmpty()) session.sheetUrl else state.sheetUrlDraft,
-                        webAppUrlDraft = if (state.webAppUrlDraft.isEmpty()) session.webAppUrl else state.webAppUrlDraft,
-                        sheetNameDraft = if (state.sheetNameDraft.isEmpty()) session.sheetName else state.sheetNameDraft,
-                    )
-                }
-
-                if (session.displayName != previousDisplayName) {
-                    publishMessages(session)
-                }
-
-                if (session.isChatConfigured) {
-                    refresh(showLoading = true)
-                    startPolling()
-                } else {
-                    stopPolling()
-                    clearPendingOps()
-                    rawMessages = emptyList()
-                    _uiState.update { it.copy(messages = emptyList()) }
+            sessionProvider.authSession.collect { auth ->
+                val previousDisplayName = _uiState.value.auth.displayName
+                _uiState.update { it.copy(auth = auth) }
+                if (auth.displayName != previousDisplayName) {
+                    publishMessages(auth.displayName)
                 }
             }
         }
+        viewModelScope.launch {
+            sessionProvider.chatConfig.collect { config ->
+                val previous = _uiState.value.chatConfig
+                _uiState.update { it.copy(chatConfig = config) }
+                when {
+                    !config.isConfigured -> {
+                        chatSyncScheduler.cancel()
+                        resetChatState()
+                    }
+                    !previous.isConfigured ||
+                        previous.spreadsheetId != config.spreadsheetId ||
+                        previous.webAppUrl != config.webAppUrl ||
+                        previous.sheetName != config.sheetName -> {
+                        chatSyncScheduler.schedule()
+                        displayLimit = CHAT_PAGE_SIZE
+                        refresh(showLoading = true)
+                    }
+                }
+            }
+        }
+        startPollingPipeline()
+    }
+
+    fun setPollingActive(active: Boolean) {
+        pollingActive.value = active
     }
 
     fun refresh(showLoading: Boolean = true) {
-        if (!_uiState.value.session.isChatConfigured) return
-        viewModelScope.launch { syncMessages(showLoading) }
+        val config = _uiState.value.chatConfig
+        if (!config.isConfigured) return
+        viewModelScope.launch { syncMessages(config, showLoading = showLoading, fullRefresh = true) }
+    }
+
+    fun loadMoreHistory() {
+        val total = internalState.value.rawMessages.size
+        if (displayLimit >= total) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingMore = true) }
+            displayLimit = (displayLimit + CHAT_PAGE_SIZE).coerceAtMost(total)
+            publishMessages(_uiState.value.auth.displayName)
+            _uiState.update { it.copy(isLoadingMore = false) }
+        }
     }
 
     fun onInputChanged(text: String) {
         _uiState.update { it.copy(inputText = text) }
     }
 
-    fun onSheetUrlChanged(text: String) { _uiState.update { it.copy(sheetUrlDraft = text) } }
-    fun onWebAppUrlChanged(text: String) { _uiState.update { it.copy(webAppUrlDraft = text) } }
-    fun onSheetNameChanged(text: String) { _uiState.update { it.copy(sheetNameDraft = text) } }
-
     fun toggleInputType() {
-        val current = _uiState.value.inputType
         _uiState.update {
-            it.copy(inputType = if (current == MessageType.TEXT) MessageType.IMPORTANT else MessageType.TEXT)
+            it.copy(
+                inputType = when (it.inputType) {
+                    MessageType.TEXT -> MessageType.IMPORTANT
+                    MessageType.IMPORTANT -> MessageType.TEXT
+                },
+            )
         }
     }
 
     fun sendMessage() {
-        val session = _uiState.value.session
+        val auth = _uiState.value.auth
+        val config = _uiState.value.chatConfig
         val text = _uiState.value.inputText.trim()
         val type = _uiState.value.inputType
-        if (text.isEmpty() || !session.isChatConfigured) return
+        if (text.isEmpty() || !config.isConfigured) return
 
         val optimistic = Message(
             id = UUID.randomUUID().toString(),
             timestamp = TimeFormats.nowIsoUtc(),
-            author = session.displayName,
+            author = auth.displayName,
             text = text,
             type = type,
         )
 
-        optimisticUpdate(
-            apply = {
-                pendingSends.add(optimistic.id)
-                rawMessages = (rawMessages + optimistic).sortedBy { it.timestamp }
-                _uiState.update { it.copy(inputText = "", inputType = MessageType.TEXT, error = null) }
-            },
-            rollback = {
-                pendingSends.remove(optimistic.id)
-                rawMessages = rawMessages.filterNot { it.id == optimistic.id }
-                _uiState.update { it.copy(inputText = text) }
-            },
-            request = {
-                repository.sendMessage(session, optimistic).onSuccess { refresh(showLoading = false) }
-            },
-        )
+        viewModelScope.launch {
+            updateInternal { state ->
+                state.copy(
+                    pendingOps = state.pendingOps.copy(sends = state.pendingOps.sends + optimistic.id),
+                    failedIds = state.failedIds - optimistic.id,
+                    rawMessages = (state.rawMessages + optimistic).sortedBy { it.timestamp },
+                )
+            }
+            _uiState.update { it.copy(inputText = "", inputType = MessageType.TEXT, error = null) }
+            publishMessages(auth.displayName)
+
+            sendMessageUseCase(config, optimistic).fold(
+                onSuccess = {
+                    triggerFastPolling()
+                    viewModelScope.launch { syncMessages(config, showLoading = false, fullRefresh = false) }
+                },
+                onFailure = { e ->
+                    updateInternal { state ->
+                        state.copy(
+                            pendingOps = state.pendingOps.copy(sends = state.pendingOps.sends - optimistic.id),
+                            failedIds = state.failedIds + optimistic.id,
+                        )
+                    }
+                    _uiState.update {
+                        it.copy(inputText = text, error = UiText.Dynamic(ErrorTexts.from(e)))
+                    }
+                    publishMessages(auth.displayName)
+                },
+            )
+        }
     }
 
     fun editMessage(messageId: String, updatedText: String) {
-        val session = _uiState.value.session
+        val auth = _uiState.value.auth
+        val config = _uiState.value.chatConfig
         val text = updatedText.trim()
-        if (!session.isChatConfigured || text.isEmpty()) return
-        val currentMessage = rawMessages.firstOrNull { it.id == messageId } ?: return
-        if (!currentMessage.isMine(session.displayName)) return
+        if (!config.isConfigured || text.isEmpty()) return
+        val currentMessage = internalState.value.rawMessages.firstOrNull { it.id == messageId } ?: return
+        if (!currentMessage.isMine(auth.displayName)) return
         if (currentMessage.text == text) return
 
         optimisticUpdate(
+            messageId = messageId,
             apply = {
-                pendingEdits[messageId] = text
-                rawMessages = rawMessages.map { message ->
-                    if (message.id == messageId) message.copy(text = text) else message
+                updateInternal { state ->
+                    state.copy(
+                        pendingOps = state.pendingOps.copy(edits = state.pendingOps.edits + (messageId to text)),
+                        failedIds = state.failedIds - messageId,
+                        rawMessages = state.rawMessages.map { m ->
+                            if (m.id == messageId) m.copy(text = text) else m
+                        },
+                    )
                 }
             },
             rollback = {
-                pendingEdits.remove(messageId)
-                rawMessages = rawMessages.map { message ->
-                    if (message.id == messageId) message.copy(text = currentMessage.text) else message
+                updateInternal { state ->
+                    state.copy(
+                        pendingOps = state.pendingOps.copy(edits = state.pendingOps.edits - messageId),
+                        failedIds = state.failedIds + messageId,
+                        rawMessages = state.rawMessages.map { m ->
+                            if (m.id == messageId) m.copy(text = currentMessage.text) else m
+                        },
+                    )
                 }
             },
-            request = { repository.updateMessage(session, messageId, text) },
+            request = { updateMessageUseCase(config, messageId, text) },
         )
     }
 
     fun deleteMessage(messageId: String) {
-        val session = _uiState.value.session
-        if (!session.isChatConfigured) return
-        val currentMessage = rawMessages.firstOrNull { it.id == messageId } ?: return
-        if (!currentMessage.isMine(session.displayName)) return
+        val auth = _uiState.value.auth
+        val config = _uiState.value.chatConfig
+        if (!config.isConfigured) return
+        val currentMessage = internalState.value.rawMessages.firstOrNull { it.id == messageId } ?: return
+        if (!currentMessage.isMine(auth.displayName)) return
 
         optimisticUpdate(
+            messageId = messageId,
             apply = {
-                pendingDeletes.add(messageId)
-                rawMessages = rawMessages.filterNot { it.id == messageId }
+                updateInternal { state ->
+                    state.copy(
+                        pendingOps = state.pendingOps.copy(deletes = state.pendingOps.deletes + messageId),
+                        failedIds = state.failedIds - messageId,
+                        rawMessages = state.rawMessages.filterNot { it.id == messageId },
+                    )
+                }
             },
             rollback = {
-                pendingDeletes.remove(messageId)
-                rawMessages = (rawMessages + currentMessage).sortedBy { it.timestamp }
+                updateInternal { state ->
+                    state.copy(
+                        pendingOps = state.pendingOps.copy(deletes = state.pendingOps.deletes - messageId),
+                        failedIds = state.failedIds + messageId,
+                        rawMessages = (state.rawMessages + currentMessage).sortedBy { it.timestamp },
+                    )
+                }
             },
-            request = { repository.deleteMessage(session, messageId) },
+            request = { deleteMessageUseCase(config, messageId) },
         )
     }
 
-    fun saveChatConfig(sheetUrl: String, webAppUrl: String, sheetName: String) {
+    private fun startPollingPipeline() {
         viewModelScope.launch {
-            when (val result = saveChatConfigUseCase(sheetUrl, webAppUrl, sheetName)) {
-                is SaveChatConfigUseCase.Result.ValidationError ->
-                    _effects.send(ChatEffect.ShowError(result.errorResId))
-                is SaveChatConfigUseCase.Result.Success -> Unit
-            }
-        }
-    }
-
-    private fun startPolling() {
-        if (pollJob?.isActive == true) return
-        pollJob = viewModelScope.launch {
-            var backoffMs = POLL_INTERVAL_MS
-            while (isActive) {
-                delay(backoffMs)
-                if (!_uiState.value.session.isChatConfigured) continue
-                if (syncMessages(showLoading = false)) {
-                    backoffMs = POLL_INTERVAL_MS
+            @OptIn(ExperimentalCoroutinesApi::class)
+            combine(sessionProvider.chatConfig, pollingActive) { config, active ->
+                config.takeIf { it.isConfigured && active }
+            }.flatMapLatest { config: ChatConfig? ->
+                if (config == null) {
+                    emptyFlow<Unit>()
                 } else {
-                    backoffMs = (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+                    flow {
+                        var backoffMs = POLL_INTERVAL_MS
+                        while (true) {
+                            val success = syncMessages(config, showLoading = false, fullRefresh = false)
+                            backoffMs = if (success) {
+                                currentPollInterval()
+                            } else {
+                                (backoffMs * 2).coerceAtMost(MAX_BACKOFF_MS)
+                            }
+                            delay(backoffMs)
+                        }
+                    }
                 }
-            }
+            }.collect { }
         }
     }
 
-    private fun stopPolling() {
-        pollJob?.cancel()
-        pollJob = null
+    private fun currentPollInterval(): Long =
+        if (System.currentTimeMillis() < fastPollUntil.value) FAST_POLL_INTERVAL_MS else POLL_INTERVAL_MS
+
+    private fun triggerFastPolling() {
+        fastPollUntil.value = System.currentTimeMillis() + FAST_POLL_DURATION_MS
     }
 
-    private suspend fun syncMessages(showLoading: Boolean): Boolean {
-        val session = _uiState.value.session
-        if (!session.isChatConfigured) return false
+    private suspend fun syncMessages(
+        config: ChatConfig,
+        showLoading: Boolean,
+        fullRefresh: Boolean,
+    ): Boolean {
+        if (!config.isConfigured) return false
         if (showLoading) _uiState.update { it.copy(isLoading = true, error = null) }
 
-        val result = repository.loadMessages(session)
-        result.onSuccess { messages ->
-            mergeRaw(messages)
-            publishMessages(_uiState.value.session)
-            if (showLoading) {
+        val since = if (fullRefresh) null else internalState.value.lastRemoteTimestamp
+        val options = MessageSyncOptions(since = since, fullRefresh = fullRefresh)
+        val result = repository.loadMessages(config, options)
+        result.fold(
+            onSuccess = { messages ->
+                mergeRaw(messages, incremental = !fullRefresh)
+                publishMessages(_uiState.value.auth.displayName)
                 _uiState.update { it.copy(isLoading = false, error = null) }
-            } else {
-                _uiState.update { it.copy(error = null) }
-            }
-        }
-        result.onFailure { e ->
-            if (showLoading) {
-                _uiState.update { it.copy(isLoading = false, error = ErrorTexts.from(e)) }
-            }
-        }
+            },
+            onFailure = { e ->
+                if (showLoading) {
+                    _uiState.update {
+                        it.copy(isLoading = false, error = UiText.Dynamic(ErrorTexts.from(e)))
+                    }
+                }
+            },
+        )
         return result.isSuccess
     }
 
     private fun optimisticUpdate(
-        apply: () -> Unit,
-        rollback: () -> Unit,
+        messageId: String,
+        apply: suspend () -> Unit,
+        rollback: suspend () -> Unit,
         request: suspend () -> Result<*>,
     ) {
-        apply()
-        publishMessages(_uiState.value.session)
         viewModelScope.launch {
-            request().onFailure { e ->
-                rollback()
-                publishMessages(_uiState.value.session)
-                _uiState.update { it.copy(error = ErrorTexts.from(e)) }
-            }
+            apply()
+            publishMessages(_uiState.value.auth.displayName)
+            request().fold(
+                onSuccess = {
+                    updateInternal { state -> state.copy(failedIds = state.failedIds - messageId) }
+                    publishMessages(_uiState.value.auth.displayName)
+                },
+                onFailure = { e ->
+                    rollback()
+                    publishMessages(_uiState.value.auth.displayName)
+                    _uiState.update { it.copy(error = UiText.Dynamic(ErrorTexts.from(e))) }
+                },
+            )
         }
     }
 
-    private fun mergeRaw(remote: List<Message>) {
-        val remoteById = remote.associateBy { it.id }
-
-        pendingSends.removeAll { it in remoteById }
-        pendingDeletes.removeAll { it !in remoteById }
-        pendingEdits.keys.removeAll { id ->
-            remoteById[id]?.text == pendingEdits[id]
-        }
-
-        val synced = remote
-            .filter { it.id !in pendingDeletes }
-            .map { message ->
-                val pendingText = pendingEdits[message.id]
-                if (pendingText != null) message.copy(text = pendingText) else message
+    private suspend fun mergeRaw(incoming: List<Message>, incremental: Boolean) {
+        updateInternal { state ->
+            val remote = if (incremental) {
+                val serverMessages = state.rawMessages.filter { it.id !in state.pendingOps.sends }
+                mergeRemoteDelta(serverMessages, incoming)
+            } else {
+                incoming
             }
-
-        val unsyncedSends = rawMessages.filter { it.id in pendingSends && it.id !in remoteById }
-        rawMessages = (synced + unsyncedSends).sortedBy { it.timestamp }
+            val remoteIds = remote.associateBy { it.id }
+            val unsyncedSends = state.rawMessages.filter {
+                it.id in state.pendingOps.sends && it.id !in remoteIds
+            }
+            val (merged, newPending) = mergeMessages(remote, state.pendingOps, unsyncedSends)
+            val lastTs = merged.maxOfOrNull { it.timestamp }
+            state.copy(
+                rawMessages = merged,
+                pendingOps = newPending,
+                lastRemoteTimestamp = lastTs ?: state.lastRemoteTimestamp,
+            )
+        }
     }
 
-    private fun clearPendingOps() {
-        pendingSends.clear()
-        pendingDeletes.clear()
-        pendingEdits.clear()
+    private fun mergeRemoteDelta(existing: List<Message>, delta: List<Message>): List<Message> {
+        if (delta.isEmpty()) return existing
+        val map = existing.associateBy { it.id }.toMutableMap()
+        delta.forEach { map[it.id] = it }
+        return map.values.sortedBy { it.timestamp }
     }
 
-    private fun publishMessages(session: UserSession) {
-        val displayName = session.displayName
-        _uiState.update { it.copy(messages = rawMessages.map { m -> m.toUiItem(displayName) }) }
+    private suspend fun resetChatState() {
+        displayLimit = CHAT_PAGE_SIZE
+        updateInternal { ChatInternalState() }
+        _uiState.update { it.copy(messages = emptyList(), canLoadMore = false) }
     }
 
-    private fun Message.toUiItem(displayName: String): MessageUiItem =
+    private suspend fun updateInternal(transform: (ChatInternalState) -> ChatInternalState) {
+        stateLock.withLock {
+            internalState.value = transform(internalState.value)
+        }
+    }
+
+    private fun publishMessages(displayName: String) {
+        val state = internalState.value
+        val all = state.rawMessages
+        val visible = if (all.size <= displayLimit) all else all.takeLast(displayLimit)
+        val pendingSends = state.pendingOps.sends
+        val failedIds = state.failedIds
+        val items = visible.map { m ->
+            m.toUiItem(
+                displayName = displayName,
+                isPending = m.id in pendingSends,
+                hasError = m.id in failedIds,
+            )
+        }
+        _uiState.update {
+            it.copy(
+                messages = items,
+                canLoadMore = all.size > displayLimit,
+            )
+        }
+    }
+
+    private fun Message.toUiItem(
+        displayName: String,
+        isPending: Boolean = false,
+        hasError: Boolean = false,
+    ): MessageUiItem =
         if (isMine(displayName)) {
-            MessageUiItem.Outgoing(id, text, TimeFormats.formatChatTime(timestamp), type)
+            MessageUiItem.Outgoing(
+                id = id,
+                text = text,
+                time = TimeFormats.formatChatTime(timestamp),
+                messageType = type,
+                isPending = isPending,
+                hasError = hasError,
+            )
         } else {
             MessageUiItem.Incoming(id, author, text, TimeFormats.formatChatTime(timestamp), type)
         }
 
-    override fun onCleared() {
-        stopPolling()
-        super.onCleared()
-    }
-
     companion object {
         private const val POLL_INTERVAL_MS = 5_000L
+        private const val FAST_POLL_INTERVAL_MS = 2_000L
+        private const val FAST_POLL_DURATION_MS = 30_000L
         private const val MAX_BACKOFF_MS = 60_000L
     }
 }
