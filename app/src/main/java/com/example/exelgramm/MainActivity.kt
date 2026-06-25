@@ -11,6 +11,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updateLayoutParams
 import androidx.core.view.updatePadding
@@ -78,6 +79,7 @@ class MainActivity : AppCompatActivity() {
 
         navController.addOnDestinationChangedListener { _, destination, _ ->
             updateToolbarForDestination(destination.id)
+            hideKeyboard()
         }
         updateToolbarForDestination(navController.currentDestination?.id ?: R.id.loginFragment)
     }
@@ -154,6 +156,12 @@ class MainActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean =
         navController.navigateUp() || super.onSupportNavigateUp()
 
+    private fun hideKeyboard() {
+        WindowInsetsControllerCompat(window, window.decorView)
+            .hide(WindowInsetsCompat.Type.ime())
+        currentFocus?.clearFocus()
+    }
+
     private fun applyBrandChrome() {
         binding.toolbar.setBackgroundColor(navBg)
         binding.statusBarBackground.setBackgroundColor(navBg)
@@ -168,8 +176,13 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(binding.root) { _, insets ->
             val statusBar = insets.getInsets(WindowInsetsCompat.Type.statusBars())
             val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             binding.statusBarBackground.updateLayoutParams { height = statusBar.top }
+            // navBar padding только для жеста/кнопок навигации — без клавиатуры
             binding.bottomNav.updatePadding(bottom = navBar.bottom)
+            // Сдвигаем весь root-layout вверх на высоту клавиатуры —
+            // LinearLayout(weight=1) уменьшается, фрагмент сжимается, inputBar остаётся виден
+            binding.root.updatePadding(bottom = ime.bottom)
             insets
         }
     }

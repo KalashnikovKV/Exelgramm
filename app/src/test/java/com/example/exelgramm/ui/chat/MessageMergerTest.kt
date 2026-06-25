@@ -120,4 +120,21 @@ class MessageMergerTest {
         )
         assertEquals(listOf("1", "local", "3"), merged.map { it.id })
     }
+
+    // ---- mergeRemoteDelta ----
+
+    @Test
+    fun `mergeRemoteDelta добавляет новые и обновляет существующие`() {
+        val existing = listOf(msg("1", text = "old"), msg("2"))
+        val delta = listOf(msg("1", text = "new"), msg("3"))
+        val merged = mergeRemoteDelta(existing, delta)
+        assertEquals(listOf("1", "2", "3"), merged.map { it.id })
+        assertEquals("new", merged.first { it.id == "1" }.text)
+    }
+
+    @Test
+    fun `mergeRemoteDelta с пустой дельтой возвращает existing`() {
+        val existing = listOf(msg("1"))
+        assertEquals(existing, mergeRemoteDelta(existing, emptyList()))
+    }
 }

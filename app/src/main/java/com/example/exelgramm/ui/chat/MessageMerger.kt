@@ -53,3 +53,11 @@ fun mergeMessages(
         edits = newEdits,
     )
 }
+
+/** Сливает инкрементальную дельту с сервером (без optimistic sends). */
+fun mergeRemoteDelta(existing: List<Message>, delta: List<Message>): List<Message> {
+    if (delta.isEmpty()) return existing
+    val map = existing.associateBy { it.id }.toMutableMap()
+    delta.forEach { map[it.id] = it }
+    return map.values.sortedBy { it.timestamp }
+}

@@ -72,6 +72,9 @@ class ChatFragment : Fragment() {
                 false
             }
         }
+        binding.messageInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) scrollToBottomIfNearEnd(adapter.itemCount)
+        }
 
         collectOnStarted(viewModel.uiState) { state -> render(state) }
 

@@ -27,18 +27,19 @@
 
 | # | Изменение | Файлы |
 |---|-----------|-------|
-| 8 | Пагинация истории: `CHAT_PAGE_SIZE`, «Загрузить ранее» | `ChatViewModel.kt`, `ChatFragment.kt` |
+| 8 | Пагинация истории: `CHAT_PAGE_SIZE`, «Загрузить ранее» | `ChatSyncCoordinator.kt`, `ChatFragment.kt` |
 | 9 | Индикатор «Отправляется…» + **«Не отправлено»** на bubble | `MessageUiItem.kt`, `MessageAdapter.kt` |
 | 10 | **WorkManager** фоновая синхронизация (15 мин) | `ChatSyncWorker.kt`, `ChatSyncScheduler.kt` |
-| 11 | **Adaptive polling**: 2 с после отправки, затем 5 с | `ChatViewModel.kt` |
+| 11 | **Adaptive polling**: 2 с после отправки, затем 5 с | `ChatSyncCoordinator.kt` |
 | 12 | Mutex, MessageMerger, screen polling, unit-тесты | см. предыдущие волны |
+| 13 | **`ChatSyncCoordinator`** — sync/polling/merge вынесены из ViewModel | `ChatSyncCoordinator.kt`, `ChatViewModel.kt` |
 
 ### Безопасность и сборка
 
 | # | Изменение | Файлы |
 |---|-----------|-------|
-| 13 | R8 + ProGuard для kotlinx.serialization | `proguard-rules.pro` |
-| 14 | Constant-time verify, async AuthStore init | `PasswordUtils.kt` |
+| 14 | R8 + ProGuard для kotlinx.serialization | `proguard-rules.pro` |
+| 15 | Constant-time verify, async AuthStore init | `PasswordUtils.kt` |
 
 ---
 
@@ -69,3 +70,4 @@
 | После волны 2 | 8.5 / 10 | Mutex, screen polling, split session |
 | После волны 3 | 9.0 / 10 | Use cases, repository tests |
 | После волны 4 | 9.5 / 10 | Serialization, pagination, encrypted DataStore, WorkManager |
+| После волны 5 | 9.5 / 10 | ChatSyncCoordinator — разгрузка ViewModel |
