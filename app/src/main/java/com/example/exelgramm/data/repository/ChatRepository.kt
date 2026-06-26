@@ -1,6 +1,7 @@
 package com.example.exelgramm.data.repository
 
 import com.example.exelgramm.core.AppError
+import com.example.exelgramm.core.TimeFormats
 import com.example.exelgramm.data.local.ChatConfig
 import com.example.exelgramm.data.local.db.MessageDao
 import com.example.exelgramm.data.local.db.toEntity
@@ -40,7 +41,7 @@ class DefaultChatRepository @Inject constructor(
             webAppUrl = config.webAppUrl,
             spreadsheetId = config.spreadsheetId,
             sheetName = config.sheetName,
-            since = options.since,
+            since = options.since?.let(TimeFormats::toIso),
         ).fold(
             onSuccess = { messages -> return@withConfiguredConfig persistAndReturn(config, messages, options) },
             onFailure = {},

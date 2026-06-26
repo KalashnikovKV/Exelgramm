@@ -78,16 +78,6 @@ class ChatFragment : Fragment() {
 
         collectOnStarted(viewModel.uiState) { state -> render(state) }
 
-        collectOnStarted(viewModel.effects) { effect ->
-            when (effect) {
-                is ChatEffect.ShowError -> Toast.makeText(
-                    requireContext(),
-                    effect.resId,
-                    Toast.LENGTH_LONG,
-                ).show()
-            }
-        }
-
         collectOnStarted(configViewModel.uiState) { state ->
             binding.sheetUrlInput.syncFromState(state.sheetUrl)
             binding.webAppUrlInput.syncFromState(state.webAppUrl)

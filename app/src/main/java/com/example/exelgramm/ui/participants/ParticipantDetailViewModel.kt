@@ -60,11 +60,9 @@ class ParticipantDetailViewModel @Inject constructor(
                         textMessages = detail.textMessages,
                         importantMessages = detail.importantMessages,
                         firstMessageTime = detail.firstMessageTime
-                            .takeIf { it.isNotBlank() }
                             ?.let(TimeFormats::formatFullDateTime)
                             .orEmpty(),
                         lastMessageTime = detail.lastMessageTime
-                            .takeIf { it.isNotBlank() }
                             ?.let(TimeFormats::formatFullDateTime)
                             .orEmpty(),
                         messages = detail.messages.map { message ->

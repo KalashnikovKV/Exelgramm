@@ -46,7 +46,7 @@ function doPost(e) {
     // Чтение чата (POST — без ошибки 405 на редиректах Google)
     if (body.action === 'fetch') {
       var sheetFetch = getSheet_(spreadsheetId, sheetName);
-      return json_({ ok: true, messages: readMessages_(sheetFetch) });
+      return json_({ ok: true, messages: readMessages_(sheetFetch, body.since || '') });
     }
 
     if (body.action === 'update') {
@@ -159,7 +159,9 @@ function readMessages_(sheet, since) {
     var text = cell_(row, textCol);
     if (!text) continue;
     var timestamp = cell_(row, timeCol) || '';
-    if (since && timestamp && timestamp <= since) continue;
+    // Граница включительна (>=): сообщения с тем же timestamp, что и курсор, не теряются.
+    // Дубликаты по id устраняет клиент (mergeRemoteDelta).
+    if (since && timestamp && timestamp < since) continue;
     out.push({
       id: cell_(row, idCol) || 'row_' + (i + 1),
       timestamp: timestamp,
@@ -172,41 +174,49 @@ function readMessages_(sheet, since) {
 }
 
 function updateMessageById_(sheet, messageId, text) {
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return false;
-  var headers = data[0].map(function (h) { return String(h).trim().toLowerCase(); });
-  var idCol = indexOf_(headers, 'id');
-  var textCol = indexOf_(headers, 'text');
+  var idCol = headerIndex_(sheet, 'id');
+  var textCol = headerIndex_(sheet, 'text');
   if (idCol < 0 || textCol < 0) return false;
-
-  for (var i = 1; i < data.length; i++) {
-    if (cell_(data[i], idCol) === messageId) {
-      sheet.getRange(i + 1, textCol + 1).setValue(text);
-      return true;
-    }
-  }
-  return false;
+  var row = findRowById_(sheet, messageId, idCol);
+  if (row < 0) return false;
+  sheet.getRange(row, textCol + 1).setValue(text);
+  return true;
 }
 
 function deleteMessageById_(sheet, messageId) {
-  var data = sheet.getDataRange().getValues();
-  if (data.length < 2) return false;
-  var headers = data[0].map(function (h) { return String(h).trim().toLowerCase(); });
-  var idCol = indexOf_(headers, 'id');
+  var idCol = headerIndex_(sheet, 'id');
   if (idCol < 0) return false;
-
-  for (var i = data.length - 1; i >= 1; i--) {
-    if (cell_(data[i], idCol) === messageId) {
-      sheet.deleteRow(i + 1);
-      return true;
-    }
-  }
-  return false;
+  var row = findRowById_(sheet, messageId, idCol);
+  if (row < 0) return false;
+  sheet.deleteRow(row);
+  return true;
 }
 
-function indexOf_(headers, name) {
-  var i = headers.indexOf(name);
-  return i >= 0 ? i : -1;
+/** Индекс колонки заголовка (0-based) без выгрузки всей таблицы. */
+function headerIndex_(sheet, name) {
+  var lastCol = Math.max(sheet.getLastColumn(), 1);
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0]
+    .map(function (h) { return String(h).trim().toLowerCase(); });
+  return headers.indexOf(name);
+}
+
+/**
+ * Находит 1-based номер строки сообщения по id через TextFinder (без чтения всего листа).
+ * Учитывает только совпадения в колонке id и ниже заголовка.
+ */
+function findRowById_(sheet, messageId, idCol) {
+  if (!messageId) return -1;
+  var matches = sheet.createTextFinder(String(messageId))
+    .matchEntireCell(true)
+    .matchCase(true)
+    .findAll();
+  for (var k = 0; k < matches.length; k++) {
+    var cell = matches[k];
+    if (cell.getColumn() - 1 === idCol && cell.getRow() >= 2) {
+      return cell.getRow();
+    }
+  }
+  return -1;
 }
 
 function cell_(row, index) {

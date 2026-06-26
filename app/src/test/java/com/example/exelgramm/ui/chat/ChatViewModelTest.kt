@@ -11,6 +11,8 @@ import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.data.repository.MessageSyncOptions
 import com.example.exelgramm.domain.model.MessageType
 import com.example.exelgramm.sync.ChatBackgroundSync
+import java.time.Instant
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -88,7 +90,7 @@ class ChatViewModelTest {
             listOf(
                 Message(
                     id = sentId,
-                    timestamp = "2024-01-01T00:00:01Z",
+                    timestamp = Instant.parse("2024-01-01T00:00:01Z"),
                     author = "alice",
                     text = "Привет",
                     type = MessageType.TEXT,
@@ -107,12 +109,19 @@ class ChatViewModelTest {
         repository: FakeChatRepository,
     ): ChatViewModel = ChatViewModel(
         sessionProvider = session,
-        repository = repository,
+        coordinatorFactory = coordinatorFactory(session, repository),
         sendMessageUseCase = SendMessageUseCase(repository),
         updateMessageUseCase = UpdateMessageUseCase(repository),
         deleteMessageUseCase = DeleteMessageUseCase(repository),
-        chatSyncScheduler = NoOpChatBackgroundSync,
     )
+
+    private fun coordinatorFactory(
+        session: FakeSessionProvider,
+        repository: FakeChatRepository,
+    ): ChatSyncCoordinator.Factory = object : ChatSyncCoordinator.Factory {
+        override fun create(scope: CoroutineScope): ChatSyncCoordinator =
+            ChatSyncCoordinator(session, repository, NoOpChatBackgroundSync, scope)
+    }
 
     private object NoOpChatBackgroundSync : ChatBackgroundSync {
         override fun schedule() = Unit

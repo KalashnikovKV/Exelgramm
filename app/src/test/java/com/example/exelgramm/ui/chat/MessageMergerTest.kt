@@ -1,6 +1,7 @@
 package com.example.exelgramm.ui.chat
 
 import com.example.exelgramm.domain.model.Message
+import java.time.Instant
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -8,7 +9,12 @@ import org.junit.Test
 
 class MessageMergerTest {
 
-    private fun msg(id: String, text: String = "text_$id", ts: String = "2024-01-01T00:00:0${id}Z") =
+    private fun ts(id: String): Instant = when (id) {
+        "local" -> Instant.parse("2024-01-01T00:00:02Z")
+        else -> Instant.parse("2024-01-01T00:00:0${id}Z")
+    }
+
+    private fun msg(id: String, text: String = "text_$id", ts: Instant = ts(id)) =
         Message(id = id, timestamp = ts, author = "alice", text = text)
 
     // ---- базовое слияние ----
@@ -100,18 +106,34 @@ class MessageMergerTest {
     // ---- порядок ----
 
     @Test
-    fun `результат отсортирован по timestamp`() {
-        val remote = listOf(msg("3", ts = "2024-01-01T00:00:03Z"), msg("1", ts = "2024-01-01T00:00:01Z"))
+    fun `сохраняет порядок предотсортированного серверного списка`() {
+        val remote = listOf(
+            msg("1", ts = Instant.parse("2024-01-01T00:00:01Z")),
+            msg("3", ts = Instant.parse("2024-01-01T00:00:03Z")),
+        )
         val (merged, _) = mergeMessages(remote, PendingOps(), emptyList())
         assertEquals(listOf("1", "3"), merged.map { it.id })
     }
 
     @Test
+    fun `mergeSortedByTimestamp сливает два отсортированных списка за O(n)`() {
+        val a = listOf(
+            msg("1", ts = Instant.parse("2024-01-01T00:00:01Z")),
+            msg("4", ts = Instant.parse("2024-01-01T00:00:04Z")),
+        )
+        val b = listOf(
+            msg("2", ts = Instant.parse("2024-01-01T00:00:02Z")),
+            msg("3", ts = Instant.parse("2024-01-01T00:00:03Z")),
+        )
+        assertEquals(listOf("1", "2", "3", "4"), mergeSortedByTimestamp(a, b).map { it.id })
+    }
+
+    @Test
     fun `unsynced send вставляется на своё место по timestamp`() {
-        val optimistic = msg("local", ts = "2024-01-01T00:00:02Z")
+        val optimistic = msg("local", ts = Instant.parse("2024-01-01T00:00:02Z"))
         val remote = listOf(
-            msg("1", ts = "2024-01-01T00:00:01Z"),
-            msg("3", ts = "2024-01-01T00:00:03Z"),
+            msg("1", ts = Instant.parse("2024-01-01T00:00:01Z")),
+            msg("3", ts = Instant.parse("2024-01-01T00:00:03Z")),
         )
         val (merged, _) = mergeMessages(
             remote,

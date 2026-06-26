@@ -2,6 +2,7 @@ package com.example.exelgramm.data.repository
 
 import com.example.exelgramm.data.local.ChatConfig
 import com.example.exelgramm.domain.model.Message
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -73,14 +74,14 @@ data class ParticipantDetail(
     val totalMessages: Int = 0,
     val textMessages: Int = 0,
     val importantMessages: Int = 0,
-    val firstMessageTime: String = "",
-    val lastMessageTime: String = "",
+    val firstMessageTime: Instant? = null,
+    val lastMessageTime: Instant? = null,
     val messages: List<ParticipantMessageSummary> = emptyList(),
 )
 
 data class ParticipantMessageSummary(
     val id: String,
     val text: String,
-    val timestamp: String,
+    val timestamp: Instant,
     val isImportant: Boolean,
 )

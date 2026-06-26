@@ -41,8 +41,11 @@ class SessionAuthRepository @Inject constructor(
             auth.username == username && PasswordUtils.verify(password, auth.passwordHash, auth.passwordSalt)
         }
         if (valid) {
-            if (auth.passwordSalt.isBlank()) {
-                // Автомиграция legacy-хэша на PBKDF2
+            // Перехэшируем при входе, если: (а) legacy SHA-256 без соли, либо
+            // (б) PBKDF2 с устаревшим числом итераций — повышаем стойкость без блокировки.
+            val needsUpgrade = auth.passwordSalt.isBlank() ||
+                PasswordUtils.needsRehash(auth.passwordHash)
+            if (needsUpgrade) {
                 val salt = PasswordUtils.generateSalt()
                 authStore.saveCredentials(username, PasswordUtils.hash(password, salt), salt)
             } else {

@@ -1,8 +1,10 @@
 package com.example.exelgramm.domain.model
 
+import java.time.Instant
+
 data class Message(
     val id: String,
-    val timestamp: String,
+    val timestamp: Instant,
     val author: String,
     val text: String,
     val type: MessageType = MessageType.TEXT,
@@ -16,7 +18,8 @@ enum class MessageType(val apiValue: String) {
     IMPORTANT("important");
 
     companion object {
-        fun fromString(value: String): MessageType =
-            entries.firstOrNull { it.apiValue == value } ?: TEXT
+        private val byApiValue: Map<String, MessageType> = entries.associateBy { it.apiValue }
+
+        fun fromString(value: String): MessageType = byApiValue[value] ?: TEXT
     }
 }

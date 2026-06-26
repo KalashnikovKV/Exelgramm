@@ -8,6 +8,7 @@ import com.example.exelgramm.data.remote.CsvMessagesClient
 import com.example.exelgramm.data.remote.MessagesApiClient
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
+import java.time.Instant
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -23,7 +24,7 @@ class ChatRepositoryTest {
 
     private val remoteMessage = Message(
         id = "1",
-        timestamp = "2024-01-01T00:00:01Z",
+        timestamp = Instant.parse("2024-01-01T00:00:01Z"),
         author = "alice",
         text = "hello",
         type = MessageType.TEXT,
@@ -106,7 +107,7 @@ class ChatRepositoryTest {
 
     private fun Message.toEntity(config: ChatConfig) = MessageEntity(
         id = id,
-        timestamp = timestamp,
+        timestamp = timestamp.toEpochMilli(),
         author = author,
         text = text,
         spreadsheetId = config.spreadsheetId,

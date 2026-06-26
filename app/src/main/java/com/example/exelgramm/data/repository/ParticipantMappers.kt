@@ -28,8 +28,8 @@ internal fun List<Message>.toParticipantDetail(authorName: String): ParticipantD
         totalMessages = stats.totalMessages,
         textMessages = stats.textMessages,
         importantMessages = stats.importantMessages,
-        firstMessageTime = sorted.firstOrNull()?.timestamp.orEmpty(),
-        lastMessageTime = sorted.lastOrNull()?.timestamp.orEmpty(),
+        firstMessageTime = sorted.firstOrNull()?.timestamp,
+        lastMessageTime = sorted.lastOrNull()?.timestamp,
         messages = sorted.map { message ->
             ParticipantMessageSummary(
                 id = message.id,

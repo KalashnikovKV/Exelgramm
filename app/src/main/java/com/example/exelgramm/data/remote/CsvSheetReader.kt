@@ -1,9 +1,11 @@
 package com.example.exelgramm.data.remote
 
+import com.example.exelgramm.core.TimeFormats
 import com.example.exelgramm.core.runSuspendCatchingCancellable
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
 import java.security.MessageDigest
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -59,7 +61,7 @@ class CsvSheetReader @Inject constructor(
             Message(
                 id = cols.getOrNull(idIdx)?.trim().orEmpty()
                     .ifBlank { stableCsvRowId(rowIndex + 2, cols) },
-                timestamp = cols.getOrNull(timeIdx)?.trim().orEmpty(),
+                timestamp = TimeFormats.parse(cols.getOrNull(timeIdx)) ?: Instant.EPOCH,
                 author = cols.getOrNull(authorIdx)?.trim().orEmpty().ifBlank { "unknown" },
                 text = text,
                 type = type,

@@ -1,7 +1,9 @@
 package com.example.exelgramm.data.remote
 
+import com.example.exelgramm.core.TimeFormats
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
+import java.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -22,7 +24,7 @@ data class MessageDto(
 ) {
     fun toDomain(): Message = Message(
         id = id,
-        timestamp = timestamp,
+        timestamp = TimeFormats.parse(timestamp) ?: Instant.EPOCH,
         author = author,
         text = text,
         type = MessageType.fromString(type),

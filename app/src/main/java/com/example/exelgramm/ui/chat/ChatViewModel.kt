@@ -1,6 +1,5 @@
 package com.example.exelgramm.ui.chat
 
-import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.exelgramm.core.ErrorTexts
@@ -9,22 +8,23 @@ import com.example.exelgramm.core.UiText
 import com.example.exelgramm.data.local.AuthSession
 import com.example.exelgramm.data.local.ChatConfig
 import com.example.exelgramm.data.local.SessionProvider
-import com.example.exelgramm.data.repository.ChatRepository
 import com.example.exelgramm.data.repository.DeleteMessageUseCase
 import com.example.exelgramm.data.repository.SendMessageUseCase
 import com.example.exelgramm.data.repository.UpdateMessageUseCase
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
-import com.example.exelgramm.sync.ChatBackgroundSync
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.util.UUID
 import javax.inject.Inject
-import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -40,26 +40,16 @@ data class ChatUiState(
     val inputType: MessageType = MessageType.TEXT,
 )
 
-sealed interface ChatEffect {
-    data class ShowError(@param:StringRes val resId: Int) : ChatEffect
-}
-
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     sessionProvider: SessionProvider,
-    repository: ChatRepository,
+    coordinatorFactory: ChatSyncCoordinator.Factory,
     private val sendMessageUseCase: SendMessageUseCase,
     private val updateMessageUseCase: UpdateMessageUseCase,
     private val deleteMessageUseCase: DeleteMessageUseCase,
-    chatSyncScheduler: ChatBackgroundSync,
 ) : ViewModel() {
 
-    private val syncCoordinator = ChatSyncCoordinator(
-        sessionProvider = sessionProvider,
-        repository = repository,
-        backgroundSync = chatSyncScheduler,
-        scope = viewModelScope,
-    )
+    private val syncCoordinator = coordinatorFactory.create(viewModelScope)
 
     private val inputText = MutableStateFlow("")
     private val inputType = MutableStateFlow(MessageType.TEXT)
@@ -68,8 +58,18 @@ class ChatViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(ChatUiState())
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
-    private val _effects = Channel<ChatEffect>(Channel.BUFFERED)
-    val effects = _effects.receiveAsFlow()
+    /**
+     * Маппинг сообщений в UI зависит ТОЛЬКО от снимка синхронизации и имени пользователя.
+     * Вынесен из общего combine, чтобы ввод текста (каждое нажатие клавиши) не вызывал
+     * повторный маппинг всего окна и форматирование времени. Считается вне main-потока.
+     */
+    private val messagesUi: Flow<List<MessageUiItem>> =
+        combine(syncCoordinator.snapshot, sessionProvider.authSession) { snap, auth ->
+            snap to auth.displayName
+        }
+            .distinctUntilChanged()
+            .map { (snap, displayName) -> mapMessagesToUi(snap, displayName) }
+            .flowOn(Dispatchers.Default)
 
     init {
         syncCoordinator.start()
@@ -83,11 +83,12 @@ class ChatViewModel @Inject constructor(
                 combine(inputText, inputType, localError) { text, type, err ->
                     Triple(text, type, err)
                 },
-            ) { (auth, config, snap), (text, type, err) ->
+                messagesUi,
+            ) { (auth, config, snap), (text, type, err), messages ->
                 ChatUiState(
                     auth = auth,
                     chatConfig = config,
-                    messages = mapMessagesToUi(snap, auth.displayName),
+                    messages = messages,
                     isLoading = snap.isLoading,
                     isLoadingMore = snap.isLoadingMore,
                     canLoadMore = snap.canLoadMore,
@@ -135,7 +136,7 @@ class ChatViewModel @Inject constructor(
 
         val optimistic = Message(
             id = UUID.randomUUID().toString(),
-            timestamp = TimeFormats.nowIsoUtc(),
+            timestamp = TimeFormats.now(),
             author = auth.displayName,
             text = text,
             type = type,

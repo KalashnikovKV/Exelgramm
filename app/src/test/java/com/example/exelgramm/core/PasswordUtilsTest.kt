@@ -60,4 +60,31 @@ class PasswordUtilsTest {
             PasswordUtils.hash("same", salt2),
         )
     }
+
+    @Test
+    fun `hash embeds iteration count as prefix`() {
+        val hash = PasswordUtils.hash("pw", PasswordUtils.generateSalt())
+        assertTrue("Expected 'iter:hex' format but got: $hash", hash.matches(Regex("""\d+:[0-9a-f]+""")))
+    }
+
+    @Test
+    fun `current hash does not need rehash`() {
+        assertFalse(PasswordUtils.needsRehash(PasswordUtils.hash("pw", PasswordUtils.generateSalt())))
+    }
+
+    @Test
+    fun `legacy unprefixed PBKDF2 hash verifies and is flagged for rehash`() {
+        val salt = PasswordUtils.generateSalt()
+        // Имитация легаси-хэша (65 536 итераций) без префикса числа итераций.
+        val legacyHex = legacyPbkdf2Hex("legacyPass", salt)
+        assertTrue(PasswordUtils.verify("legacyPass", legacyHex, salt))
+        assertTrue(PasswordUtils.needsRehash(legacyHex))
+    }
+
+    private fun legacyPbkdf2Hex(password: String, salt: String): String {
+        val saltBytes = salt.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        val spec = javax.crypto.spec.PBEKeySpec(password.toCharArray(), saltBytes, 65_536, 256)
+        val key = javax.crypto.SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec)
+        return key.encoded.joinToString("") { "%02x".format(it) }
+    }
 }

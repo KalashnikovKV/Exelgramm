@@ -23,7 +23,11 @@ data class PendingOps(
  * Алгоритм:
  * 1. Снимает флаги pending с операций, которые уже отразились на сервере.
  * 2. Применяет оставшиеся pending-операции поверх серверного списка.
- * 3. Добавляет в конец unsyncedSends — сообщения, ещё не дошедшие до сервера.
+ * 3. Добавляет unsyncedSends — сообщения, ещё не дошедшие до сервера.
+ *
+ * Предусловие: [remote] и [unsyncedSends] отсортированы по timestamp по возрастанию
+ * (инвариант поддерживается на всех путях записи). Благодаря этому финальное слияние
+ * выполняется за O(n) вместо повторной сортировки O(n log n) на каждый poll.
  *
  * Функция не имеет побочных эффектов: входные данные не изменяются.
  */
@@ -45,7 +49,7 @@ fun mergeMessages(
         .map { m -> newEdits[m.id]?.let { m.copy(text = it) } ?: m }
 
     val stillUnsynced = unsyncedSends.filter { it.id in newSends }
-    val merged = (synced + stillUnsynced).sortedBy { it.timestamp }
+    val merged = mergeSortedByTimestamp(synced, stillUnsynced)
 
     return merged to PendingOps(
         sends = newSends,
@@ -54,10 +58,37 @@ fun mergeMessages(
     )
 }
 
-/** Сливает инкрементальную дельту с сервером (без optimistic sends). */
+/**
+ * Сливает инкрементальную дельту с сервером (без optimistic sends), сохраняя дедуп по id.
+ *
+ * Предусловие: [existing] и [delta] отсортированы по timestamp. Обновлённые записи
+ * (тот же id, новое содержимое) берутся из [delta]. Слияние — O(n + m).
+ */
 fun mergeRemoteDelta(existing: List<Message>, delta: List<Message>): List<Message> {
     if (delta.isEmpty()) return existing
-    val map = existing.associateBy { it.id }.toMutableMap()
-    delta.forEach { map[it.id] = it }
-    return map.values.sortedBy { it.timestamp }
+    val deltaIds = delta.mapTo(HashSet()) { it.id }
+    val kept = existing.filter { it.id !in deltaIds }
+    return mergeSortedByTimestamp(kept, delta)
+}
+
+/**
+ * Слияние двух отсортированных по timestamp списков за O(n + m) (merge-шаг из merge sort).
+ * При равных timestamp элементы из [a] идут первыми (стабильность).
+ */
+internal fun mergeSortedByTimestamp(a: List<Message>, b: List<Message>): List<Message> {
+    if (a.isEmpty()) return b
+    if (b.isEmpty()) return a
+    val result = ArrayList<Message>(a.size + b.size)
+    var i = 0
+    var j = 0
+    while (i < a.size && j < b.size) {
+        if (a[i].timestamp <= b[j].timestamp) {
+            result.add(a[i++])
+        } else {
+            result.add(b[j++])
+        }
+    }
+    while (i < a.size) result.add(a[i++])
+    while (j < b.size) result.add(b[j++])
+    return result
 }

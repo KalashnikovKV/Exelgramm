@@ -1,6 +1,7 @@
 package com.example.exelgramm.data.remote
 
 import com.example.exelgramm.core.AppError
+import com.example.exelgramm.core.TimeFormats
 import com.example.exelgramm.core.runSuspendCatchingCancellable
 import com.example.exelgramm.domain.model.Message
 import javax.inject.Inject
@@ -42,7 +43,7 @@ class AppsScriptApi @Inject constructor(
             spreadsheetId = spreadsheetId,
             sheet = sheetName,
             id = message.id,
-            timestamp = message.timestamp,
+            timestamp = TimeFormats.toIso(message.timestamp),
             author = message.author,
             text = message.text,
             type = message.type.apiValue,

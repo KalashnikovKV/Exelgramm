@@ -9,6 +9,9 @@ import com.example.exelgramm.data.repository.ChatRepository
 import com.example.exelgramm.data.repository.MessageSyncOptions
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.sync.ChatBackgroundSync
+import dagger.assisted.Assisted
+import dagger.assisted.AssistedFactory
+import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
@@ -41,16 +44,24 @@ data class ChatMessagesSnapshot(
  * Координатор синхронизации чата: polling, merge с сервером, пагинация истории.
  * ViewModel делегирует сюда всю сетевую/merge-логику и хранит только UI-состояние.
  */
-class ChatSyncCoordinator(
+class ChatSyncCoordinator @AssistedInject constructor(
     private val sessionProvider: SessionProvider,
     private val repository: ChatRepository,
     private val backgroundSync: ChatBackgroundSync,
-    private val scope: CoroutineScope,
+    @Assisted private val scope: CoroutineScope,
 ) {
+    @AssistedFactory
+    interface Factory {
+        fun create(scope: CoroutineScope): ChatSyncCoordinator
+    }
+
     private val stateLock = Mutex()
     private val internalState = MutableStateFlow(ChatInternalState())
     private val pollingActive = MutableStateFlow(false)
     private val fastPollUntil = MutableStateFlow(0L)
+
+    /** Размер видимого окна истории. Читается/пишется только под [stateLock]. */
+    @Volatile
     private var displayLimit = CHAT_PAGE_SIZE
 
     private val _snapshot = MutableStateFlow(ChatMessagesSnapshot())
@@ -86,11 +97,15 @@ class ChatSyncCoordinator(
     }
 
     fun loadMoreHistory() {
-        val total = internalState.value.rawMessages.size
-        if (displayLimit >= total) return
+        if (displayLimit >= internalState.value.rawMessages.size) return
         scope.launch {
             updateSnapshot { it.copy(isLoadingMore = true) }
-            displayLimit = (displayLimit + CHAT_PAGE_SIZE).coerceAtMost(total)
+            stateLock.withLock {
+                val total = internalState.value.rawMessages.size
+                if (displayLimit < total) {
+                    displayLimit = (displayLimit + CHAT_PAGE_SIZE).coerceAtMost(total)
+                }
+            }
             publishSnapshot()
             updateSnapshot { it.copy(isLoadingMore = false) }
         }
@@ -104,8 +119,8 @@ class ChatSyncCoordinator(
     }
 
     suspend fun reset() {
-        displayLimit = CHAT_PAGE_SIZE
         stateLock.withLock {
+            displayLimit = CHAT_PAGE_SIZE
             internalState.value = ChatInternalState()
         }
         publishSnapshot(clearError = true)
@@ -125,7 +140,7 @@ class ChatSyncCoordinator(
                 previous.webAppUrl != config.webAppUrl ||
                 previous.sheetName != config.sheetName -> {
                 backgroundSync.schedule()
-                displayLimit = CHAT_PAGE_SIZE
+                stateLock.withLock { displayLimit = CHAT_PAGE_SIZE }
                 syncMessages(config, showLoading = true, fullRefresh = true)
             }
         }
@@ -202,11 +217,12 @@ class ChatSyncCoordinator(
                 it.id in state.pendingOps.sends && it.id !in remoteIds
             }
             val (merged, newPending) = mergeMessages(remote, state.pendingOps, unsyncedSends)
-            val lastTs = merged.maxOfOrNull { it.timestamp }
+            // remote отсортирован по возрастанию, поэтому максимум серверного времени — O(1).
+            val lastRemoteTs = remote.lastOrNull()?.timestamp
             internalState.value = state.copy(
                 rawMessages = merged,
                 pendingOps = newPending,
-                lastRemoteTimestamp = lastTs ?: state.lastRemoteTimestamp,
+                lastRemoteTimestamp = lastRemoteTs ?: state.lastRemoteTimestamp,
             )
         }
         publishSnapshot()

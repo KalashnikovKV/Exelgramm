@@ -5,14 +5,16 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import com.example.exelgramm.domain.model.Message
 import com.example.exelgramm.domain.model.MessageType
+import java.time.Instant
 
 @Entity(
     tableName = "messages",
-    indices = [Index("spreadsheetId", "sheetName")],
+    indices = [Index("spreadsheetId", "sheetName", "timestamp")],
 )
 data class MessageEntity(
     @PrimaryKey val id: String,
-    val timestamp: String,
+    /** epoch-миллисекунды: числовое хранение для корректной сортировки и сравнения. */
+    val timestamp: Long,
     val author: String,
     val text: String,
     val spreadsheetId: String,
@@ -21,7 +23,7 @@ data class MessageEntity(
 ) {
     fun toDomain(): Message = Message(
         id = id,
-        timestamp = timestamp,
+        timestamp = Instant.ofEpochMilli(timestamp),
         author = author,
         text = text,
         type = MessageType.fromString(type),
@@ -30,7 +32,7 @@ data class MessageEntity(
 
 fun Message.toEntity(spreadsheetId: String, sheetName: String) = MessageEntity(
     id = id,
-    timestamp = timestamp,
+    timestamp = timestamp.toEpochMilli(),
     author = author,
     text = text,
     spreadsheetId = spreadsheetId,
