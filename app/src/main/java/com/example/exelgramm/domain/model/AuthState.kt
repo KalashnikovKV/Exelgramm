@@ -1,8 +1,7 @@
 package com.example.exelgramm.domain.model
 
 /**
- * Снимок состояния аутентификации. Не содержит хэш/соль — только то,
- * что нужно UI и бизнес-логике.
+ * Authentication state snapshot. No hash/salt — only what UI and logic need.
  */
 data class AuthState(
     val username: String = "",

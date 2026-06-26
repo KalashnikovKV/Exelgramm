@@ -17,7 +17,7 @@ class MessageMergerTest {
     private fun msg(id: String, text: String = "text_$id", ts: Instant = ts(id)) =
         Message(id = id, timestamp = ts, author = "alice", text = text)
 
-    // ---- базовое слияние ----
+    // ---- basic merge ----
 
     @Test
     fun `пустые pending — возвращает серверный список`() {
@@ -103,7 +103,7 @@ class MessageMergerTest {
         assertTrue(pending.edits.isEmpty())
     }
 
-    // ---- порядок ----
+    // ---- ordering ----
 
     @Test
     fun `сохраняет порядок предотсортированного серверного списка`() {

@@ -64,7 +64,7 @@ class ChatSyncCoordinatorTest {
         coordinator.refresh(config)
         advanceUntilIdle()
 
-        // Дельта повторяет граничное сообщение id=1 (>= since) с новым текстом и добавляет id=3.
+        // Delta repeats boundary message id=1 (>= since) with new text and adds id=3.
         repo.delta = listOf(msg(1, "new"), msg(3))
         coordinator.syncIncremental(config)
         advanceUntilIdle()

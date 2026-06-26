@@ -36,8 +36,8 @@ class ParticipantsViewModel @Inject constructor(
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
     /**
-     * @param syncFromRemote при true — сначала загрузка с сервера (обновляет Room-кэш)
-     * @param showLoading индикатор pull-to-refresh
+     * @param syncFromRemote when true, fetch from server first (updates Room cache)
+     * @param showLoading pull-to-refresh indicator
      */
     fun refresh(syncFromRemote: Boolean = false, showLoading: Boolean = false) {
         viewModelScope.launch {

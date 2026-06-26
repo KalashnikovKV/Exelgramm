@@ -8,8 +8,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Хранилище глобальных настроек приложения (не привязанных к аккаунту).
- * Использует обычные SharedPreferences для синхронного доступа при старте.
+ * Global app settings (not tied to an account).
+ * Uses SharedPreferences for synchronous access at startup.
  */
 @Singleton
 class AppPrefsStore @Inject constructor(

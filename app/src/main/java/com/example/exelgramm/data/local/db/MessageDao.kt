@@ -23,7 +23,7 @@ interface MessageDao {
     @Upsert
     suspend fun upsertAll(messages: List<MessageEntity>)
 
-    /** Полная замена кэша листа — убирает сообщения, удалённые на сервере. */
+    /** Replaces the full sheet cache — removes messages deleted on the server. */
     @Transaction
     suspend fun replaceForSheet(
         spreadsheetId: String,

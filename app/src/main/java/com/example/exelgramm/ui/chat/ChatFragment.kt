@@ -206,8 +206,8 @@ class ChatFragment : Fragment() {
     }
 
     /**
-     * Скроллит к последнему сообщению только если пользователь находится
-     * в нижней зоне списка (не прокрутил историю вверх).
+     * Scrolls to the last message only when the user is near the bottom
+     * (has not scrolled up through history).
      */
     private fun scrollToBottomIfNearEnd(itemCount: Int) {
         if (itemCount == 0) return
@@ -243,7 +243,7 @@ class ChatFragment : Fragment() {
     }
 
     companion object {
-        /** Количество позиций от конца списка, в пределах которых автоскролл активен. */
+        /** Positions from the list end within which auto-scroll is active. */
         private const val SCROLL_THRESHOLD = 3
     }
 }

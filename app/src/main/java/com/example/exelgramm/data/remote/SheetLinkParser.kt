@@ -11,7 +11,7 @@ object SheetLinkParser {
     fun parseSpreadsheetId(url: String): String? =
         SPREADSHEET_ID_REGEX.find(url.trim())?.groupValues?.getOrNull(1)
 
-    /** URL из «Развернуть»: https://script.google.com/macros/s/ID/exec */
+    /** Deploy URL: https://script.google.com/macros/s/ID/exec */
     fun canonicalExecUrl(url: String): String {
         val trimmed = url.trim()
         val deploymentId = DEPLOYMENT_ID_REGEX.find(trimmed)?.groupValues?.getOrNull(1)

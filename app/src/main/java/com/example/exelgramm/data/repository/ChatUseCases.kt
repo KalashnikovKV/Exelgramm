@@ -35,7 +35,7 @@ class LoadParticipantsUseCase @Inject constructor(
     private val repository: ChatRepository,
 ) {
     /**
-     * @param syncFromRemote при true — сначала загрузка с сервера (обновляет Room-кэш)
+     * @param syncFromRemote when true, fetch from server first (updates Room cache)
      */
     suspend operator fun invoke(config: ChatConfig, syncFromRemote: Boolean): Result<List<ParticipantSummary>> {
         if (syncFromRemote) {
@@ -59,7 +59,7 @@ class LoadParticipantDetailUseCase @Inject constructor(
     }
 }
 
-/** Агрегированная статистика участника для списка. */
+/** Aggregated participant stats for the list screen. */
 data class ParticipantSummary(
     val author: String,
     val totalMessages: Int,
@@ -68,7 +68,7 @@ data class ParticipantSummary(
     val lastMessageTime: String,
 )
 
-/** Детальная информация об участнике и его сообщениях. */
+/** Participant detail and their messages. */
 data class ParticipantDetail(
     val authorName: String,
     val totalMessages: Int = 0,

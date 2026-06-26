@@ -59,9 +59,9 @@ class ChatViewModel @Inject constructor(
     val uiState: StateFlow<ChatUiState> = _uiState.asStateFlow()
 
     /**
-     * Маппинг сообщений в UI зависит ТОЛЬКО от снимка синхронизации и имени пользователя.
-     * Вынесен из общего combine, чтобы ввод текста (каждое нажатие клавиши) не вызывал
-     * повторный маппинг всего окна и форматирование времени. Считается вне main-потока.
+     * Message-to-UI mapping depends ONLY on the sync snapshot and display name.
+     * Pulled out of the main combine so typing does not remap the whole list
+     * or reformat timestamps on every keystroke. Runs off the main thread.
      */
     private val messagesUi: Flow<List<MessageUiItem>> =
         combine(syncCoordinator.snapshot, sessionProvider.authSession) { snap, auth ->

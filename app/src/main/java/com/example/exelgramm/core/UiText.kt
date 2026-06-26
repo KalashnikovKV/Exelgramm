@@ -4,11 +4,11 @@ import android.content.Context
 import androidx.annotation.StringRes
 
 /**
- * Обёртка для текста, который может быть строковым ресурсом или динамической строкой.
- * Позволяет ViewModel не зависеть от Context при формировании ошибок.
+ * Text that may be a string resource or a dynamic string.
+ * Lets ViewModels build errors without a Context.
  */
 sealed interface UiText {
-    /** Строковый ресурс с опциональными форматными аргументами. */
+    /** String resource with optional format args. */
     class StringResource(
         @param:StringRes val resId: Int,
         vararg val args: Any,

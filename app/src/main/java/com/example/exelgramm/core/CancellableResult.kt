@@ -3,9 +3,9 @@ package com.example.exelgramm.core
 import kotlinx.coroutines.CancellationException
 
 /**
- * Аналог [runCatching], но пробрасывает [CancellationException] вместо того чтобы её ловить.
- * Стандартный [runCatching] нарушает кооперативную отмену корутин: отмена превращается
- * в Result.failure вместо того чтобы отменить всю цепочку корутин.
+ * Like [runCatching], but rethrows [CancellationException] instead of catching it.
+ * Standard [runCatching] breaks cooperative coroutine cancellation by turning
+ * cancellation into Result.failure.
  */
 inline fun <T> runCatchingCancellable(block: () -> T): Result<T> =
     try {
@@ -16,7 +16,7 @@ inline fun <T> runCatchingCancellable(block: () -> T): Result<T> =
         Result.failure(t)
     }
 
-/** Suspend-версия [runCatchingCancellable] для асинхронных операций (HTTP и т.д.). */
+/** Suspend variant of [runCatchingCancellable] for async work (HTTP, etc.). */
 suspend inline fun <T> runSuspendCatchingCancellable(crossinline block: suspend () -> T): Result<T> =
     try {
         Result.success(block())

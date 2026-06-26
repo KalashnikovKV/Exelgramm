@@ -14,7 +14,7 @@ import okhttp3.Request
 import java.net.URLEncoder
 
 /**
- * Запасное чтение через публичный CSV (если таблица доступна «все с ссылкой — просмотр»).
+ * Fallback read via public CSV (sheet shared as viewable by link).
  */
 @Singleton
 class CsvSheetReader @Inject constructor(
@@ -70,12 +70,12 @@ class CsvSheetReader @Inject constructor(
     }
 
     /**
-     * RFC 4180-совместимый парсер CSV.
+     * RFC 4180 CSV parser.
      *
-     * Поддерживает:
-     * - переносы строк внутри кавычек (многострочные поля)
-     * - экранированные кавычки через "" → "
-     * - CRLF и LF как разделители строк
+     * Supports:
+     * - newlines inside quoted fields
+     * - escaped quotes via "" → "
+     * - CRLF and LF line endings
      */
     private fun parseCsvToRows(text: String): List<List<String>> {
         val rows = mutableListOf<List<String>>()
@@ -121,8 +121,8 @@ class CsvSheetReader @Inject constructor(
 }
 
 /**
- * Стабильный ID для строк CSV без колонки id: номер строки листа + SHA-256 содержимого.
- * rowNumber — 1-based номер строки в таблице (строка 1 = заголовок).
+ * Stable ID for CSV rows without an id column: sheet row number + SHA-256 of content.
+ * rowNumber is 1-based (row 1 is the header).
  */
 internal fun stableCsvRowId(rowNumber: Int, cols: List<String>): String {
     val payload = cols.joinToString("\u0001")

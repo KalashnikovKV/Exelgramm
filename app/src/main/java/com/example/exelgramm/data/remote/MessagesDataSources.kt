@@ -2,7 +2,7 @@ package com.example.exelgramm.data.remote
 
 import com.example.exelgramm.domain.model.Message
 
-/** Контракт HTTP-клиента Apps Script (для DI и тестов). */
+/** Apps Script HTTP client contract (for DI and tests). */
 interface MessagesApiClient {
     suspend fun fetchMessages(
         webAppUrl: String,
@@ -34,7 +34,7 @@ interface MessagesApiClient {
     ): Result<Unit>
 }
 
-/** Контракт запасного CSV-источника (для DI и тестов). */
+/** Fallback CSV source contract (for DI and tests). */
 interface CsvMessagesClient {
     suspend fun fetch(spreadsheetId: String, sheetName: String): Result<List<Message>>
 }

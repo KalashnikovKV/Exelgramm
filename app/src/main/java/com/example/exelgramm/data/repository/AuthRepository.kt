@@ -12,7 +12,7 @@ import javax.inject.Singleton
 
 interface AuthRepository {
     val authState: Flow<AuthState>
-    /** @return true если credentials совпали */
+    /** @return true if credentials matched */
     suspend fun login(username: String, password: String): Boolean
     suspend fun register(username: String, password: String)
     suspend fun logout()
@@ -35,14 +35,14 @@ class SessionAuthRepository @Inject constructor(
     override suspend fun login(username: String, password: String): Boolean {
         val auth = authStore.state.first()
         val valid = if (auth.passwordSalt.isBlank()) {
-            // Backward compat: legacy SHA-256 без соли
+            // Backward compat: legacy unsalted SHA-256
             auth.username == username && auth.passwordHash == PasswordUtils.sha256(password)
         } else {
             auth.username == username && PasswordUtils.verify(password, auth.passwordHash, auth.passwordSalt)
         }
         if (valid) {
-            // Перехэшируем при входе, если: (а) legacy SHA-256 без соли, либо
-            // (б) PBKDF2 с устаревшим числом итераций — повышаем стойкость без блокировки.
+            // Rehash on login if: (a) legacy unsalted SHA-256, or
+            // (b) PBKDF2 with outdated iteration count — upgrade without locking users out.
             val needsUpgrade = auth.passwordSalt.isBlank() ||
                 PasswordUtils.needsRehash(auth.passwordHash)
             if (needsUpgrade) {

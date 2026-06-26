@@ -9,8 +9,8 @@ import okhttp3.Callback
 import okhttp3.Response
 
 /**
- * Асинхронное выполнение [Call] с поддержкой отмены корутины.
- * При [kotlinx.coroutines.CancellationException] вызывает [Call.cancel].
+ * Runs [Call] asynchronously with coroutine cancellation support.
+ * On [kotlinx.coroutines.CancellationException], calls [Call.cancel].
  */
 suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
     cont.invokeOnCancellation { cancel() }

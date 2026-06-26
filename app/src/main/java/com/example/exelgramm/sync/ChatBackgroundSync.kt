@@ -1,6 +1,6 @@
 package com.example.exelgramm.sync
 
-/** Абстракция фоновой синхронизации (WorkManager). */
+/** Background sync abstraction (WorkManager). */
 interface ChatBackgroundSync {
     fun schedule()
     fun cancel()

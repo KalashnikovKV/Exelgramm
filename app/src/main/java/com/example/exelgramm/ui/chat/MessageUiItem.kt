@@ -3,9 +3,9 @@ package com.example.exelgramm.ui.chat
 import com.example.exelgramm.domain.model.MessageType
 
 /**
- * Презентационная модель сообщения: время уже отформатировано, тип (incoming/outgoing)
- * вычислен во ViewModel — адаптеру не нужен доступ к текущему автору.
- * [messageType] — тип содержимого сообщения, фиксируется при создании.
+ * Presentation model for a message: time is formatted, incoming/outgoing type
+ * is resolved in the ViewModel — the adapter does not need the current author.
+ * [messageType] is the content type, fixed at creation.
  */
 sealed class MessageUiItem(open val id: String) {
 

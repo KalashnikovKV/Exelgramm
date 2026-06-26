@@ -28,8 +28,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /**
- * Снимок состояния синхронизации для UI-слоя.
- * ViewModel маппит [visibleMessages] в [MessageUiItem].
+ * Sync state snapshot for the UI layer.
+ * ViewModel maps [visibleMessages] to [MessageUiItem].
  */
 data class ChatMessagesSnapshot(
     val internalState: ChatInternalState = ChatInternalState(),
@@ -41,8 +41,8 @@ data class ChatMessagesSnapshot(
 )
 
 /**
- * Координатор синхронизации чата: polling, merge с сервером, пагинация истории.
- * ViewModel делегирует сюда всю сетевую/merge-логику и хранит только UI-состояние.
+ * Chat sync coordinator: polling, server merge, history pagination.
+ * ViewModel delegates network/merge logic here and keeps UI state only.
  */
 class ChatSyncCoordinator @AssistedInject constructor(
     private val sessionProvider: SessionProvider,
@@ -60,7 +60,7 @@ class ChatSyncCoordinator @AssistedInject constructor(
     private val pollingActive = MutableStateFlow(false)
     private val fastPollUntil = MutableStateFlow(0L)
 
-    /** Размер видимого окна истории. Читается/пишется только под [stateLock]. */
+    /** Visible history window size. Read/written only under [stateLock]. */
     @Volatile
     private var displayLimit = CHAT_PAGE_SIZE
 
@@ -217,7 +217,7 @@ class ChatSyncCoordinator @AssistedInject constructor(
                 it.id in state.pendingOps.sends && it.id !in remoteIds
             }
             val (merged, newPending) = mergeMessages(remote, state.pendingOps, unsyncedSends)
-            // remote отсортирован по возрастанию, поэтому максимум серверного времени — O(1).
+            // remote is sorted ascending; latest server time is O(1) via last().
             val lastRemoteTs = remote.lastOrNull()?.timestamp
             internalState.value = state.copy(
                 rawMessages = merged,

@@ -13,7 +13,7 @@ import java.time.Instant
 )
 data class MessageEntity(
     @PrimaryKey val id: String,
-    /** epoch-миллисекунды: числовое хранение для корректной сортировки и сравнения. */
+    /** Epoch milliseconds for correct sort/compare. */
     val timestamp: Long,
     val author: String,
     val text: String,

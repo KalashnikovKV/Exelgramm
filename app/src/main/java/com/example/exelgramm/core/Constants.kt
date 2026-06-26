@@ -1,7 +1,7 @@
 package com.example.exelgramm.core
 
-/** Имя листа по умолчанию, используется в нескольких слоях без доступа к ресурсам. */
+/** Default sheet name, shared across layers without resource access. */
 const val DEFAULT_SHEET_NAME = "Лист1"
 
-/** Количество сообщений на одну «страницу» истории чата. */
+/** Messages per chat history page. */
 const val CHAT_PAGE_SIZE = 50

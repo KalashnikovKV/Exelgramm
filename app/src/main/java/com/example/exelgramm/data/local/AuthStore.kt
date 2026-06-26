@@ -27,8 +27,8 @@ import javax.inject.Singleton
 private val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_encrypted_v2")
 
 /**
- * Хранилище auth-данных в Encrypted DataStore (AES-GCM через Android Keystore).
- * Однократно мигрирует данные из legacy EncryptedSharedPreferences (auth_store_v1).
+ * Auth data in Encrypted DataStore (AES-GCM via Android Keystore).
+ * One-time migration from legacy EncryptedSharedPreferences (auth_store_v1).
  */
 @Singleton
 class AuthStore @Inject constructor(@param:ApplicationContext private val context: Context) {

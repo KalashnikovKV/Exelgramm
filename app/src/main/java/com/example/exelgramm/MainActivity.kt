@@ -178,10 +178,9 @@ class MainActivity : AppCompatActivity() {
             val navBar = insets.getInsets(WindowInsetsCompat.Type.navigationBars())
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             binding.statusBarBackground.updateLayoutParams { height = statusBar.top }
-            // navBar padding только для жеста/кнопок навигации — без клавиатуры
+            // navBar padding for gesture/button nav only — not the keyboard
             binding.bottomNav.updatePadding(bottom = navBar.bottom)
-            // Сдвигаем весь root-layout вверх на высоту клавиатуры —
-            // LinearLayout(weight=1) уменьшается, фрагмент сжимается, inputBar остаётся виден
+            // Shift root up by keyboard height so the weighted fragment shrinks and input stays visible
             binding.root.updatePadding(bottom = ime.bottom)
             insets
         }

@@ -5,13 +5,12 @@ import com.example.exelgramm.R
 import com.example.exelgramm.data.remote.SheetLinkParser
 
 /**
- * Валидирует поля конфигурации чата, разделяя бизнес-правила от UI.
- * Устраняет дублирование: один вызов validate() заменяет набор Toast-проверок в нескольких местах.
+ * Validates chat config fields, keeping business rules out of the UI.
  */
 object ChatConfigValidator {
 
     sealed interface Result {
-        /** Поля прошли валидацию; [spreadsheetId] уже распарсен из sheetUrl. */
+        /** Validation passed; [spreadsheetId] parsed from sheetUrl. */
         data class Success(val spreadsheetId: String) : Result
         data class Failure(@param:StringRes val errorResId: Int) : Result
     }

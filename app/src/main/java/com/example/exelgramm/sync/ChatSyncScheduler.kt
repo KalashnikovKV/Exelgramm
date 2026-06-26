@@ -12,8 +12,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Фоновая синхронизация чата через WorkManager (альтернатива FCM для Sheets-бэкенда).
- * Минимальный интервал WorkManager — 15 минут.
+ * Background chat sync via WorkManager (FCM alternative for Sheets backend).
+ * WorkManager minimum interval is 15 minutes.
  */
 @Singleton
 class ChatSyncScheduler @Inject constructor(

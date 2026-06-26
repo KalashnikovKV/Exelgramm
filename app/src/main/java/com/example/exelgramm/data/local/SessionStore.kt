@@ -16,8 +16,8 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Конфигурация чата хранится в DataStore (открытый текст — не чувствительные данные).
- * Credentials хранятся в [AuthStore] (EncryptedSharedPreferences).
+ * Chat config in DataStore (plaintext — not sensitive).
+ * Credentials live in [AuthStore].
  */
 private val Context.chatConfigDataStore: DataStore<Preferences> by preferencesDataStore(name = "chat_config")
 
@@ -26,7 +26,7 @@ class SessionStore @Inject constructor(
     val authStore: AuthStore,
     @param:ApplicationContext private val context: Context,
 ) : SessionProvider {
-    /** Только auth-данные — не пересчитывается при изменении конфига чата. */
+    /** Auth only — not recomputed when chat config changes. */
     override val authSession: Flow<AuthSession> = authStore.state.map { auth ->
         AuthSession(
             username = auth.username,
@@ -36,7 +36,7 @@ class SessionStore @Inject constructor(
         )
     }
 
-    /** Только конфиг чата — не пересчитывается при изменении auth. */
+    /** Chat config only — not recomputed when auth changes. */
     override val chatConfig: Flow<ChatConfig> = context.chatConfigDataStore.data.map { prefs ->
         ChatConfig(
             spreadsheetId = prefs[KEY_SPREADSHEET_ID].orEmpty(),
@@ -86,7 +86,7 @@ class SessionStore @Inject constructor(
         context.chatConfigDataStore.edit { it.clear() }
     }
 
-    /** Быстрая проверка состояния входа (для первого экрана). */
+    /** Quick login check for the first screen. */
     suspend fun isLoggedIn(): Boolean = authStore.state.first().isLoggedIn
 
     private companion object {

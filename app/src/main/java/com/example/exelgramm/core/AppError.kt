@@ -1,19 +1,19 @@
 package com.example.exelgramm.core
 
 /**
- * Типизированные ошибки приложения. Бросаются в data-слое, распознаются в [ErrorTexts].
+ * Typed app errors. Thrown in the data layer, mapped in [ErrorTexts].
  */
 sealed class AppError : Exception() {
-    /** Нет интернета или неверный хост */
+    /** No internet or invalid host */
     data object NoInternet : AppError()
-    /** Сервер вернул HTML вместо JSON (неверный URL /exec или нет публичного доступа) */
+    /** Server returned HTML instead of JSON (bad /exec URL or no public access) */
     data object HtmlResponse : AppError()
-    /** Превышено максимальное количество редиректов */
+    /** Too many redirects */
     data object TooManyRedirects : AppError()
-    /** Сервер вернул HTTP-ошибку */
+    /** HTTP error from server */
     data class HttpError(val code: Int, val body: String = "") : AppError()
-    /** API вернул ok=false с описанием ошибки */
+    /** API returned ok=false */
     data class ApiError(val detail: String) : AppError()
-    /** Чат не настроен (нет spreadsheetId или webAppUrl) */
+    /** Chat not configured (missing spreadsheetId or webAppUrl) */
     data object ChatNotConfigured : AppError()
 }

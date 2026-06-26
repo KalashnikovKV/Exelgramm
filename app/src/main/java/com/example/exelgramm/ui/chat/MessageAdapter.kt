@@ -12,8 +12,8 @@ import com.example.exelgramm.R
 import com.example.exelgramm.domain.model.MessageType
 
 /**
- * Работает с [MessageUiItem]: тип (incoming/outgoing) и время уже вычислены во ViewModel,
- * адаптер — только отображение.
+ * Uses [MessageUiItem]: type (incoming/outgoing) and time are computed in the ViewModel;
+ * the adapter only renders.
  */
 class MessageAdapter(
     private val onMessageLongClick: (MessageUiItem) -> Unit,

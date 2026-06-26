@@ -10,8 +10,8 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * AES-GCM шифрование через Android Keystore.
- * Замена deprecated EncryptedSharedPreferences для auth-данных.
+ * AES-GCM encryption via Android Keystore.
+ * Replaces deprecated EncryptedSharedPreferences for auth data.
  */
 object AuthCrypto {
 

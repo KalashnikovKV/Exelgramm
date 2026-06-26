@@ -8,35 +8,35 @@ import javax.crypto.spec.PBEKeySpec
 object PasswordUtils {
 
     /**
-     * Текущее число итераций PBKDF2. Хранится внутри строки хэша (`iter:hex`),
-     * поэтому значение можно повышать без блокировки уже зарегистрированных
-     * пользователей — старые хэши проверяются своим числом итераций, а при
-     * успешном входе перехэшируются на актуальное (см. [needsRehash]).
+     * Current PBKDF2 iteration count. Stored inside the hash string (`iter:hex`),
+     * so it can be raised without locking out registered users — old hashes are
+     * verified with their own iteration count and rehashed on successful login
+     * (see [needsRehash]).
      */
     private const val DEFAULT_ITERATIONS = 210_000
 
-    /** Число итераций у легаси-хэшей без префикса (первая версия PBKDF2). */
+    /** Iteration count for legacy hashes without an `iter:` prefix (first PBKDF2 version). */
     private const val LEGACY_ITERATIONS = 65_536
 
     private const val KEY_LENGTH = 256
     private const val ALGORITHM = "PBKDF2WithHmacSHA256"
     private const val SEPARATOR = ":"
 
-    /** Генерирует случайную соль (32 hex-символа = 16 байт). */
+    /** Generates a random salt (32 hex chars = 16 bytes). */
     fun generateSalt(): String {
         val bytes = ByteArray(16)
         SecureRandom().nextBytes(bytes)
         return bytes.toHex()
     }
 
-    /** PBKDF2-HMAC-SHA256 хэш с солью; формат `<iterations>:<hex>`. */
+    /** PBKDF2-HMAC-SHA256 hash with salt; format `<iterations>:<hex>`. */
     fun hash(password: String, salt: String): String =
         DEFAULT_ITERATIONS.toString() + SEPARATOR + derive(password, salt, DEFAULT_ITERATIONS)
 
     /**
-     * Проверяет пароль против хэша. Поддерживает как новый формат `iter:hex`,
-     * так и легаси-хэш без префикса (трактуется как [LEGACY_ITERATIONS]).
-     * Использует [MessageDigest.isEqual] для constant-time сравнения.
+     * Verifies a password against a hash. Supports the new `iter:hex` format and
+     * legacy unprefixed hashes (treated as [LEGACY_ITERATIONS]).
+     * Uses [MessageDigest.isEqual] for constant-time comparison.
      */
     fun verify(password: String, hash: String, salt: String): Boolean {
         val (iterations, expectedHex) = parse(hash)
@@ -45,12 +45,12 @@ object PasswordUtils {
         return MessageDigest.isEqual(computed, expected)
     }
 
-    /** true, если хэш создан с числом итераций ниже актуального и его стоит обновить. */
+    /** True if the hash uses fewer iterations than the current default and should be upgraded. */
     fun needsRehash(hash: String): Boolean = parse(hash).first < DEFAULT_ITERATIONS
 
     /**
-     * Legacy SHA-256 хэш без соли (использовался до PBKDF2).
-     * Нужен для миграции существующих аккаунтов.
+     * Legacy unsalted SHA-256 hash (used before PBKDF2).
+     * Kept for migrating existing accounts.
      */
     fun sha256(password: String): String =
         MessageDigest.getInstance("SHA-256")

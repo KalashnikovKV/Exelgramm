@@ -2,10 +2,10 @@ package com.example.exelgramm.data.repository
 
 import java.time.Instant
 
-/** Параметры синхронизации сообщений с сервером. */
+/** Message sync options for the server. */
 data class MessageSyncOptions(
-    /** Загрузить только сообщения новее этого момента (инкрементальный poll). */
+    /** Fetch only messages newer than this instant (incremental poll). */
     val since: Instant? = null,
-    /** true — полная замена кэша листа; false — upsert (инкрементальный poll). */
+    /** true — replace sheet cache; false — upsert (incremental poll). */
     val fullRefresh: Boolean = true,
 )

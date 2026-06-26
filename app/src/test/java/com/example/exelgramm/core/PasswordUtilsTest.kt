@@ -75,7 +75,7 @@ class PasswordUtilsTest {
     @Test
     fun `legacy unprefixed PBKDF2 hash verifies and is flagged for rehash`() {
         val salt = PasswordUtils.generateSalt()
-        // Имитация легаси-хэша (65 536 итераций) без префикса числа итераций.
+        // Simulates legacy hash (65,536 iterations) without an iteration prefix.
         val legacyHex = legacyPbkdf2Hex("legacyPass", salt)
         assertTrue(PasswordUtils.verify("legacyPass", legacyHex, salt))
         assertTrue(PasswordUtils.needsRehash(legacyHex))
