@@ -2,6 +2,24 @@
 
 Чат поверх Google Таблицы через Apps Script.
 
+## Скриншоты
+
+### Чат
+
+![Экран чата](docs/screenshots/chat.png)
+
+### Настройки чата
+
+Подключение Google Таблицы и URL веб-приложения Apps Script.
+
+![Настройки чата](docs/screenshots/chat_settings.png)
+
+### Статистика
+
+Список участников и сводка по сообщениям.
+
+![Статистика участников](docs/screenshots/stat.png)
+
 ## Настройка Google (один раз)
 
 1. Откройте таблицу → **Расширения → Apps Script**.
